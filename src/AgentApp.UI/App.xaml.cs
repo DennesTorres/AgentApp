@@ -12,6 +12,7 @@ using AgentApp.Infrastructure.Persistence;
 using AgentApp.Infrastructure.ProjectSwitch;
 using AgentApp.UI.ViewModels;
 using AgentApp.UI.ViewModels.Chat;
+using AgentApp.UI.ViewModels.Settings;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentApp.UI;
@@ -64,6 +65,7 @@ public partial class App : System.Windows.Application
 
         // UI
         services.AddSingleton<ChatViewModel>();
+        services.AddSingleton<ApiKeySettingsViewModel>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
 
