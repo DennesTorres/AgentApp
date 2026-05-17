@@ -4,14 +4,23 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:mah="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        xmlns:chat="clr-namespace:AgentApp.UI.Views.Chat"
         mc:Ignorable="d"
         Title="{Binding Title}"
         Height="720" Width="1280"
         WindowStartupLocation="CenterScreen">
     <Grid>
-        <TextBlock Text="AgentApp — Epic 1 scaffold"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   FontSize="18" />
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="AgentApp"
+                   FontSize="14" FontWeight="SemiBold"
+                   Margin="12,8" />
+
+        <chat:ChatView Grid.Row="1"
+                       DataContext="{Binding ChatViewModel}" />
     </Grid>
 </mah:MetroWindow>
