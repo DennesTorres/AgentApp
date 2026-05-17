@@ -1,0 +1,17 @@
+﻿<mah:MetroWindow x:Class="AgentApp.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:mah="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        mc:Ignorable="d"
+        Title="{Binding Title}"
+        Height="720" Width="1280"
+        WindowStartupLocation="CenterScreen">
+    <Grid>
+        <TextBlock Text="AgentApp — Epic 1 scaffold"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   FontSize="18" />
+    </Grid>
+</mah:MetroWindow>
