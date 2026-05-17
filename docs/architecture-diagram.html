@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentApp — Architecture Diagram</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<style>
+  body { background: #0f1117; font-family: 'Segoe UI', sans-serif; color: #e2e8f0; margin: 0; padding: 40px; }
+  h1 { color: #94a3b8; font-size: 20px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 4px; }
+  h2 { color: #475569; font-size: 13px; margin-top: 0; margin-bottom: 24px; }
+  .diagram-wrap { background: #1e2533; border-radius: 12px; padding: 40px; }
+</style>
+</head>
+<body>
+<h1>AgentApp</h1>
+<h2>Architecture Diagram — 2026-05-17 — Epic 1: Project &amp; Session Management</h2>
+<div class="diagram-wrap">
+<div class="mermaid">
+flowchart TB
+
+  subgraph UI["AgentApp.UI (Presentation)"]
+    App["App.xaml.cs\nComposition Root / DI"]
+    MainWindow["MainWindow\nMetroWindow shell"]
+    MainWindowVM["MainWindowViewModel\nObservableObject"]
+  end
+
+  subgraph Application["AgentApp.Application (Application)"]
+    SessionSvc["SessionService\nStartStandalone · LinkToProject"]
+    ProjectSvc["ProjectService\nCreate · GetAll · GetById"]
+    SwitchSvc["ProjectSwitchService\nSwitchToProject · SwitchToNone"]
+  end
+
+  subgraph Domain["AgentApp.Domain (Domain)"]
+    ChatSession["ChatSession\nCreateStandalone · CreateForProject · LinkToProject"]
+    Project["Project\nCreate · Reconstitute"]
+    GlobalSettings["GlobalSettings\nRootProjectFolderPath"]
+    ISessionRepo["ISessionRepository"]
+    IProjectRepo["IProjectRepository"]
+    ISettingsRepo["ISettingsRepository"]
+    ISwitchHandler["IProjectSwitchHandler\nResetForProject · ResetForStandalone"]
+    Exceptions["DomainValidationException\nDomainNotFoundException"]
+  end
+
+  subgraph Infrastructure["AgentApp.Infrastructure (Infrastructure)"]
+    JsonProjectRepo["JsonProjectRepository\nJSON file persistence"]
+    JsonSettingsRepo["JsonSettingsRepository\nJSON file persistence"]
+    NullSwitchHandler["NullProjectSwitchHandler\nPlaceholder — Epic 11"]
+  end
+
+  App --> SessionSvc
+  App --> ProjectSvc
+  App --> SwitchSvc
+  App --> MainWindowVM
+  App --> MainWindow
+  MainWindow --> MainWindowVM
+
+  SessionSvc --> ISessionRepo
+  SessionSvc --> ChatSession
+  ProjectSvc --> IProjectRepo
+  ProjectSvc --> ISettingsRepo
+  ProjectSvc --> Project
+  SwitchSvc --> IProjectRepo
+  SwitchSvc --> ISwitchHandler
+
+  JsonProjectRepo -.->|implements| IProjectRepo
+  JsonSettingsRepo -.->|implements| ISettingsRepo
+  NullSwitchHandler -.->|implements| ISwitchHandler
+
+  ISessionRepo --> Domain
+  IProjectRepo --> Domain
+  ISettingsRepo --> Domain
+  ISwitchHandler --> Domain
+</div>
+</div>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'dark' });</script>
+</body>
+</html>
