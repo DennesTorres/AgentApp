@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using AgentApp.Application.Chat;
 using AgentApp.Application.ExecutionStates;
+using AgentApp.Application.Learning;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
 using AgentApp.Application.Sessions;
@@ -72,6 +73,10 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IExecutionStateMachine, ExecutionStateMachine>();
         services.AddSingleton<StateAwareSystemMessageBuilder>();
 
+        // Learning orchestrator
+        services.AddSingleton<LearningStack>();
+        services.AddSingleton<LearningOrchestrator>();
+
         // Application
         services.AddSingleton<SessionService>();
         services.AddSingleton<ProjectService>();
@@ -81,6 +86,7 @@ public partial class App : System.Windows.Application
         // UI
         services.AddSingleton<ChatViewModel>();
         services.AddSingleton<ApiKeySettingsViewModel>();
+        services.AddSingleton<LearningProposalViewModel>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
 

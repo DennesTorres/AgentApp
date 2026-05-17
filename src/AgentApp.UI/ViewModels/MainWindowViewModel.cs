@@ -11,11 +11,14 @@ public partial class MainWindowViewModel : ObservableObject
 
     public ChatViewModel ChatViewModel { get; }
     public ApiKeySettingsViewModel ApiKeySettingsViewModel { get; }
+    public LearningProposalViewModel LearningProposalViewModel { get; }
 
     public MainWindowViewModel(ChatViewModel chatViewModel,
-        ApiKeySettingsViewModel apiKeySettingsViewModel)
+        ApiKeySettingsViewModel apiKeySettingsViewModel,
+        LearningProposalViewModel learningProposalViewModel)
     {
         ChatViewModel = chatViewModel;
         ApiKeySettingsViewModel = apiKeySettingsViewModel;
+        LearningProposalViewModel = learningProposalViewModel;
     }
 }

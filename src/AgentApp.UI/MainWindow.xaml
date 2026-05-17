@@ -6,16 +6,29 @@
         xmlns:mah="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         xmlns:chat="clr-namespace:AgentApp.UI.Views.Chat"
         xmlns:settings="clr-namespace:AgentApp.UI.Views.Settings"
+        xmlns:views="clr-namespace:AgentApp.UI.Views"
         mc:Ignorable="d"
         Title="{Binding Title}"
         Height="720" Width="1280"
         WindowStartupLocation="CenterScreen">
-    <TabControl>
-        <TabItem Header="Chat">
-            <chat:ChatView DataContext="{Binding ChatViewModel}" />
-        </TabItem>
-        <TabItem Header="Settings">
-            <settings:ApiKeySettingsView DataContext="{Binding ApiKeySettingsViewModel}" />
-        </TabItem>
-    </TabControl>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0">
+            <TabItem Header="Chat">
+                <chat:ChatView DataContext="{Binding ChatViewModel}" />
+            </TabItem>
+            <TabItem Header="Settings">
+                <settings:ApiKeySettingsView DataContext="{Binding ApiKeySettingsViewModel}" />
+            </TabItem>
+        </TabControl>
+
+        <!-- US-145: Learning proposal panel — visible only when a proposal is pending -->
+        <views:LearningProposalView Grid.Row="1"
+            DataContext="{Binding LearningProposalViewModel}"
+            Visibility="{Binding IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}" />
+    </Grid>
 </mah:MetroWindow>

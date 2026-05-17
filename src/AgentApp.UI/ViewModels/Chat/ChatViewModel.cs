@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using AgentApp.Application.Chat;
+using AgentApp.Application.Learning;
 using AgentApp.Domain.ExecutionStates;
+using AgentApp.Domain.Learning;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -10,6 +12,7 @@ public partial class ChatViewModel : ObservableObject
 {
     private readonly ChatService _chatService;
     private readonly IExecutionStateMachine _stateMachine;
+    private readonly LearningStack _learningStack;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendMessageCommand))]
@@ -25,10 +28,12 @@ public partial class ChatViewModel : ObservableObject
     public ObservableCollection<ChatTurnViewModel> Messages { get; } = [];
     public ObservableCollection<string> AvailableTransitions { get; } = [];
 
-    public ChatViewModel(ChatService chatService, IExecutionStateMachine stateMachine)
+    public ChatViewModel(ChatService chatService, IExecutionStateMachine stateMachine,
+        LearningStack learningStack)
     {
         _chatService = chatService;
         _stateMachine = stateMachine;
+        _learningStack = learningStack;
         _stateMachine.StateChanged += OnStateChanged;
         RefreshStateUi();
     }
@@ -64,6 +69,16 @@ public partial class ChatViewModel : ObservableObject
     {
         if (Enum.TryParse<ExecutionStateName>(targetStateName, out var target))
             _stateMachine.TransitionTo(target);
+    }
+
+    // US-144: user can trigger a learning process pointing at the last assistant response
+    [RelayCommand]
+    private void TriggerLearning()
+    {
+        var context = Messages.LastOrDefault(m => !m.IsUser)?.Content
+                      ?? "User triggered learning from chat";
+        var session = LearningSession.Initiate(LearningTrigger.ExternalUserError, context);
+        _learningStack.Push(session);
     }
 
     private bool CanSend() => !IsBusy && !string.IsNullOrWhiteSpace(UserInput);
