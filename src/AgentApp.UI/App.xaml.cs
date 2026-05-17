@@ -1,9 +1,11 @@
 using System.IO;
 using System.Windows;
 using AgentApp.Application.Chat;
+using AgentApp.Application.ExecutionStates;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
 using AgentApp.Application.Sessions;
+using AgentApp.Domain.ExecutionStates;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Providers;
 using AgentApp.Infrastructure.Credentials;
@@ -56,6 +58,19 @@ public partial class App : System.Windows.Application
             return registry;
         });
         services.AddSingleton<OrchestratorPipeline>();
+
+        // Execution state machine — register four state providers, then registry, then machine
+        services.AddSingleton<IExecutionStateRegistry>(sp =>
+        {
+            var registry = new ExecutionStateRegistry();
+            registry.Register(new ChatStateProvider());
+            registry.Register(new ResearchStateProvider());
+            registry.Register(new ImplementingStateProvider());
+            registry.Register(new TestingStateProvider());
+            return registry;
+        });
+        services.AddSingleton<IExecutionStateMachine, ExecutionStateMachine>();
+        services.AddSingleton<StateAwareSystemMessageBuilder>();
 
         // Application
         services.AddSingleton<SessionService>();
