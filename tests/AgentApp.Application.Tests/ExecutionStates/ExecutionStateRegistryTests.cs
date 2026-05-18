@@ -1,5 +1,4 @@
 using AgentApp.Application.ExecutionStates;
-using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.ExecutionStates;
 
 namespace AgentApp.Application.Tests.ExecutionStates;
@@ -9,7 +8,7 @@ public class ExecutionStateRegistryTests
     [Fact]
     public void Register_And_Resolve_Returns_Provider()
     {
-        var provider = new FakeExecutionStateProvider(ExecutionStateName.Chat);
+        var provider = new ChatStateProvider();
         var registry = new ExecutionStateRegistry();
         registry.Register(provider);
 
@@ -27,8 +26,8 @@ public class ExecutionStateRegistryTests
     [Fact]
     public void Register_SameState_Twice_LastWins()
     {
-        var first = new FakeExecutionStateProvider(ExecutionStateName.Implementing);
-        var second = new FakeExecutionStateProvider(ExecutionStateName.Implementing);
+        var first = new ImplementingStateProvider();
+        var second = new ImplementingStateProvider();
 
         var registry = new ExecutionStateRegistry();
         registry.Register(first);
@@ -40,8 +39,8 @@ public class ExecutionStateRegistryTests
     [Fact]
     public void GetAll_Returns_All_Registered()
     {
-        var chatProvider = new FakeExecutionStateProvider(ExecutionStateName.Chat);
-        var researchProvider = new FakeExecutionStateProvider(ExecutionStateName.Research);
+        var chatProvider = new ChatStateProvider();
+        var researchProvider = new ResearchStateProvider();
 
         var registry = new ExecutionStateRegistry();
         registry.Register(chatProvider);
