@@ -1,52 +1,34 @@
 using AgentApp.Application.Learning;
 using AgentApp.Application.Providers;
+using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Learning;
 using AgentApp.Domain.Providers;
-using NSubstitute;
 
 namespace AgentApp.Application.Tests.Learning;
 
 public class LearningOrchestratorTests
 {
-    private static OrchestratorPipeline BuildPipelineWithResponse(string responseText)
+    private static (OrchestratorPipeline pipeline, FakeProvider provider) BuildPipelineWithResponse(string responseText)
     {
-        var provider = Substitute.For<IProvider>();
-        provider.Capability.Returns(ProviderCapability.ModelCall);
-
-        var registry = Substitute.For<IProviderRegistry>();
-        registry.Resolve(ProviderCapability.ModelCall).Returns(provider);
-
-        provider.HandleAsync(Arg.Any<ProviderRequest>(), Arg.Any<CancellationToken>())
-            .Returns(ci =>
-            {
-                var req = ci.Arg<ProviderRequest>();
-                return ProviderResponse.Ok(req.RequestId,
-                    new Dictionary<string, object> { ["text"] = responseText });
-            });
-
-        return new OrchestratorPipeline(registry);
+        var provider = new FakeProvider(ProviderCapability.ModelCall, r => ProviderResponse.Ok(r.RequestId,
+            new Dictionary<string, object> { ["text"] = responseText }));
+        var registry = new ProviderRegistry();
+        registry.Register(provider);
+        return (new OrchestratorPipeline(registry), provider);
     }
 
     [Fact]
     public async Task RunLearningLoopAsync_CallsPipeline_WithModelCallCapability()
     {
-        var provider = Substitute.For<IProvider>();
-        provider.Capability.Returns(ProviderCapability.ModelCall);
-        var registry = Substitute.For<IProviderRegistry>();
-        registry.Resolve(ProviderCapability.ModelCall).Returns(provider);
-        provider.HandleAsync(Arg.Any<ProviderRequest>(), Arg.Any<CancellationToken>())
-            .Returns(ci => ProviderResponse.Ok(ci.Arg<ProviderRequest>().RequestId,
-                new Dictionary<string, object> { ["text"] = "no proposal" }));
-
-        var pipeline = new OrchestratorPipeline(registry);
+        var (pipeline, provider) = BuildPipelineWithResponse("no proposal");
         var orchestrator = new LearningOrchestrator(pipeline);
         var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "test violation");
 
         await orchestrator.RunLearningLoopAsync(session);
 
-        await provider.Received(1).HandleAsync(
-            Arg.Is<ProviderRequest>(r => r.Capability == ProviderCapability.ModelCall),
-            Arg.Any<CancellationToken>());
+        Assert.Equal(1, provider.CallCount);
+        Assert.NotNull(provider.LastRequest);
+        Assert.Equal(ProviderCapability.ModelCall, provider.LastRequest!.Capability);
     }
 
     [Fact]
@@ -55,7 +37,7 @@ public class LearningOrchestratorTests
         var responseText = "Analysis complete. " +
             "[RULE_PROPOSAL:{\"fileName\":\"CLAUDE.md\",\"ruleText\":\"Always read X first.\",\"humanSummary\":\"Read X before acting\",\"action\":\"add\"}]";
 
-        var pipeline = BuildPipelineWithResponse(responseText);
+        var (pipeline, _) = BuildPipelineWithResponse(responseText);
         var orchestrator = new LearningOrchestrator(pipeline);
         var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation");
 
@@ -69,7 +51,7 @@ public class LearningOrchestratorTests
     [Fact]
     public async Task RunLearningLoopAsync_NoProposalInResponse_ReturnsNull()
     {
-        var pipeline = BuildPipelineWithResponse("I cannot propose a rule change at this time.");
+        var (pipeline, _) = BuildPipelineWithResponse("I cannot propose a rule change at this time.");
         var orchestrator = new LearningOrchestrator(pipeline);
         var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation");
 
@@ -84,37 +66,26 @@ public class LearningOrchestratorTests
         var responseText =
             "[RULE_PROPOSAL:{\"fileName\":\"CLAUDE.md\",\"ruleText\":\"Rule text.\",\"humanSummary\":\"Summary.\",\"action\":\"add\"}]";
 
-        var pipeline = BuildPipelineWithResponse(responseText);
+        var (pipeline, _) = BuildPipelineWithResponse(responseText);
         var orchestrator = new LearningOrchestrator(pipeline);
         var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation");
 
         await orchestrator.RunLearningLoopAsync(session);
 
-        // Session should now have a proposed change
         Assert.NotNull(session.ProposedChange);
     }
 
     [Fact]
     public async Task RunLearningLoopAsync_IncludesViolationDescription_InRequest()
     {
-        var provider = Substitute.For<IProvider>();
-        provider.Capability.Returns(ProviderCapability.ModelCall);
-        var registry = Substitute.For<IProviderRegistry>();
-        registry.Resolve(ProviderCapability.ModelCall).Returns(provider);
-        provider.HandleAsync(Arg.Any<ProviderRequest>(), Arg.Any<CancellationToken>())
-            .Returns(ci => ProviderResponse.Ok(ci.Arg<ProviderRequest>().RequestId,
-                new Dictionary<string, object> { ["text"] = "no proposal" }));
-
-        var pipeline = new OrchestratorPipeline(registry);
+        var (pipeline, provider) = BuildPipelineWithResponse("no proposal");
         var orchestrator = new LearningOrchestrator(pipeline);
         var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "gate step was skipped");
 
         await orchestrator.RunLearningLoopAsync(session);
 
-        await provider.Received(1).HandleAsync(
-            Arg.Is<ProviderRequest>(r =>
-                r.Payload.ContainsKey("violation") &&
-                r.Payload["violation"].ToString()!.Contains("gate step was skipped")),
-            Arg.Any<CancellationToken>());
+        Assert.NotNull(provider.LastRequest);
+        Assert.True(provider.LastRequest!.Payload.ContainsKey("violation"));
+        Assert.Contains("gate step was skipped", provider.LastRequest.Payload["violation"].ToString()!);
     }
 }

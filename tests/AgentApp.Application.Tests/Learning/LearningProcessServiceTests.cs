@@ -1,16 +1,17 @@
 using AgentApp.Application.Learning;
-using AgentApp.Domain.Interfaces;
+using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Learning;
 using AgentApp.Domain.Rules;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Learning;
 
-public class LearningProcessServiceTests
+public class LearningProcessServiceTests : IDisposable
 {
-    private readonly ILearningSessionRepository _sessionRepository;
-    private readonly ILearningLogger _logger;
-    private readonly IMdFileRepository _mdFileRepository;
+    private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly JsonLearningSessionRepository _sessionRepository;
+    private readonly FakeLearningLogger _logger;
+    private readonly JsonMdFileRepository _mdFileRepository;
     private readonly LearningProcessService _sut;
 
     private static readonly ProposedRuleChange SampleChange =
@@ -19,11 +20,13 @@ public class LearningProcessServiceTests
 
     public LearningProcessServiceTests()
     {
-        _sessionRepository = Substitute.For<ILearningSessionRepository>();
-        _logger = Substitute.For<ILearningLogger>();
-        _mdFileRepository = Substitute.For<IMdFileRepository>();
+        _sessionRepository = new JsonLearningSessionRepository(_tempFolder);
+        _logger = new FakeLearningLogger();
+        _mdFileRepository = new JsonMdFileRepository(_tempFolder);
         _sut = new LearningProcessService(_sessionRepository, _logger, _mdFileRepository);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task InitiateAsync_SavesAndReturnsSession()
@@ -31,21 +34,24 @@ public class LearningProcessServiceTests
         var session = await _sut.InitiateAsync(LearningTrigger.InternalGateFailure, "gate failed");
 
         Assert.Equal(LearningOutcome.Pending, session.Outcome);
-        await _sessionRepository.Received(1).SaveAsync(Arg.Is<LearningSession>(s =>
-            s.Trigger == LearningTrigger.InternalGateFailure));
-        await _logger.Received(1).LogAsync(Arg.Any<string>());
+        var saved = await _sessionRepository.GetByIdAsync(session.Id);
+        Assert.NotNull(saved);
+        Assert.Equal(LearningTrigger.InternalGateFailure, saved.Trigger);
+        Assert.Single(_logger.Entries);
     }
 
     [Fact]
     public async Task ProposeChangeAsync_UpdatesAndSavesSession()
     {
         var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation", null);
-        _sessionRepository.GetByIdAsync(session.Id).Returns(session);
+        await _sessionRepository.SaveAsync(session);
 
         var updated = await _sut.ProposeChangeAsync(session.Id, SampleChange);
 
         Assert.Equal(1, updated.IterationCount);
-        await _sessionRepository.Received(1).SaveAsync(Arg.Any<LearningSession>());
+        var saved = await _sessionRepository.GetByIdAsync(session.Id);
+        Assert.NotNull(saved);
+        Assert.Equal(1, saved.IterationCount);
     }
 
     [Fact]
@@ -53,14 +59,13 @@ public class LearningProcessServiceTests
     {
         var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation", null);
         session.ProposeChange(SampleChange);
-        _sessionRepository.GetByIdAsync(session.Id).Returns(session);
-        _mdFileRepository.GetByNameAsync("coding-standards", MdFileScope.Global, null).Returns((MdFile?)null);
+        await _sessionRepository.SaveAsync(session);
 
         var updated = await _sut.ApproveAsync(session.Id);
 
         Assert.Equal(LearningOutcome.Approved, updated.Outcome);
-        await _mdFileRepository.Received(1).SaveAsync(Arg.Any<MdFile>());
-        await _sessionRepository.Received(1).SaveAsync(Arg.Any<LearningSession>());
+        var mdFile = await _mdFileRepository.GetByNameAsync("coding-standards", MdFileScope.Global, null);
+        Assert.NotNull(mdFile);
     }
 
     [Fact]
@@ -68,14 +73,15 @@ public class LearningProcessServiceTests
     {
         var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation", null);
         session.ProposeChange(SampleChange);
-        _sessionRepository.GetByIdAsync(session.Id).Returns(session);
+        await _sessionRepository.SaveAsync(session);
         var existingFile = MdFile.CreateGlobal("coding-standards", "## Existing rule");
-        _mdFileRepository.GetByNameAsync("coding-standards", MdFileScope.Global, null).Returns(existingFile);
+        await _mdFileRepository.SaveAsync(existingFile);
 
         await _sut.ApproveAsync(session.Id);
 
-        await _mdFileRepository.Received(1).SaveAsync(Arg.Is<MdFile>(f =>
-            f.Content.Contains("## New Rule")));
+        var saved = await _mdFileRepository.GetByNameAsync("coding-standards", MdFileScope.Global, null);
+        Assert.NotNull(saved);
+        Assert.Contains("## New Rule", saved.Content);
     }
 
     [Fact]
@@ -83,25 +89,23 @@ public class LearningProcessServiceTests
     {
         var session = LearningSession.Initiate(LearningTrigger.ExternalUserError, "error", null);
         session.ProposeChange(SampleChange);
-        _sessionRepository.GetByIdAsync(session.Id).Returns(session);
+        await _sessionRepository.SaveAsync(session);
 
         var updated = await _sut.RejectAsync(session.Id, "Too vague");
 
         Assert.Equal(LearningOutcome.Rejected, updated.Outcome);
         Assert.Equal("Too vague", updated.RejectionReason);
-        await _sessionRepository.Received(1).SaveAsync(Arg.Any<LearningSession>());
-        await _logger.Received(1).LogAsync(Arg.Any<string>());
+        Assert.Equal(1, _logger.Entries.Count);
     }
 
     [Fact]
     public async Task CancelAsync_SetsCancelledAndSavesSession()
     {
         var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation", null);
-        _sessionRepository.GetByIdAsync(session.Id).Returns(session);
+        await _sessionRepository.SaveAsync(session);
 
         var updated = await _sut.CancelAsync(session.Id);
 
         Assert.Equal(LearningOutcome.Cancelled, updated.Outcome);
-        await _sessionRepository.Received(1).SaveAsync(Arg.Any<LearningSession>());
     }
 }

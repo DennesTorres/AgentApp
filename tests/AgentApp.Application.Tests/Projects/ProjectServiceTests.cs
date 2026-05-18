@@ -1,38 +1,36 @@
 using AgentApp.Application.Projects;
 using AgentApp.Domain.Exceptions;
-using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Projects;
-using AgentApp.Domain.Settings;
-using NSubstitute;
+using AgentApp.Infrastructure.Persistence;
 
 namespace AgentApp.Application.Tests.Projects;
 
-public class ProjectServiceTests
+public class ProjectServiceTests : IDisposable
 {
-    private readonly IProjectRepository _projectRepository;
-    private readonly ISettingsRepository _settingsRepository;
+    private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly JsonProjectRepository _projectRepository;
+    private readonly JsonSettingsRepository _settingsRepository;
     private readonly ProjectService _sut;
 
     public ProjectServiceTests()
     {
-        _projectRepository = Substitute.For<IProjectRepository>();
-        _settingsRepository = Substitute.For<ISettingsRepository>();
+        _projectRepository = new JsonProjectRepository(_tempFolder);
+        _settingsRepository = new JsonSettingsRepository(_tempFolder);
         _sut = new ProjectService(_projectRepository, _settingsRepository);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task CreateProjectAsync_ValidInput_SavesAndReturnsProject()
     {
-        _settingsRepository.GetGlobalSettingsAsync().Returns(new GlobalSettings
-        {
-            RootProjectFolderPath = @"C:\Projects"
-        });
-
         var project = await _sut.CreateProjectAsync("MyProject", @"C:\Projects\MyProject");
 
         Assert.NotNull(project);
         Assert.Equal("MyProject", project.Name);
-        await _projectRepository.Received(1).SaveAsync(Arg.Is<Project>(p => p.Name == "MyProject"));
+        var saved = await _projectRepository.GetByIdAsync(project.Id);
+        Assert.NotNull(saved);
+        Assert.Equal("MyProject", saved.Name);
     }
 
     [Fact]
@@ -45,12 +43,8 @@ public class ProjectServiceTests
     [Fact]
     public async Task GetAllProjectsAsync_ReturnsAllProjects()
     {
-        var projects = new List<Project>
-        {
-            Project.Create("A", @"C:\Projects\A"),
-            Project.Create("B", @"C:\Projects\B")
-        };
-        _projectRepository.GetAllAsync().Returns(projects);
+        await _projectRepository.SaveAsync(Project.Create("A", @"C:\Projects\A"));
+        await _projectRepository.SaveAsync(Project.Create("B", @"C:\Projects\B"));
 
         var result = await _sut.GetAllProjectsAsync();
 
@@ -61,7 +55,7 @@ public class ProjectServiceTests
     public async Task GetProjectByIdAsync_ExistingProject_ReturnsProject()
     {
         var project = Project.Create("MyProject", @"C:\Projects\MyProject");
-        _projectRepository.GetByIdAsync(project.Id).Returns(project);
+        await _projectRepository.SaveAsync(project);
 
         var result = await _sut.GetProjectByIdAsync(project.Id);
 
@@ -71,8 +65,6 @@ public class ProjectServiceTests
     [Fact]
     public async Task GetProjectByIdAsync_NotFound_ThrowsNotFoundException()
     {
-        _projectRepository.GetByIdAsync(Arg.Any<Guid>()).Returns((Project?)null);
-
         await Assert.ThrowsAsync<DomainNotFoundException>(
             () => _sut.GetProjectByIdAsync(Guid.NewGuid()));
     }
