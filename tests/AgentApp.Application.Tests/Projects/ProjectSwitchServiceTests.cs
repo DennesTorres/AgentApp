@@ -1,39 +1,44 @@
 using AgentApp.Application.Projects;
+using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Projects;
-using NSubstitute;
+using AgentApp.Infrastructure.Persistence;
 
 namespace AgentApp.Application.Tests.Projects;
 
-public class ProjectSwitchServiceTests
+public class ProjectSwitchServiceTests : IDisposable
 {
+    private readonly string _tempFolder;
     private readonly IProjectRepository _projectRepository;
-    private readonly IProjectSwitchHandler _switchHandler;
+    private readonly FakeProjectSwitchHandler _switchHandler;
     private readonly ProjectSwitchService _sut;
 
     public ProjectSwitchServiceTests()
     {
-        _projectRepository = Substitute.For<IProjectRepository>();
-        _switchHandler = Substitute.For<IProjectSwitchHandler>();
+        _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(_tempFolder);
+        _projectRepository = new JsonProjectRepository(_tempFolder);
+        _switchHandler = new FakeProjectSwitchHandler();
         _sut = new ProjectSwitchService(_projectRepository, _switchHandler);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task SwitchToProjectAsync_ExistingProject_CallsResetOnHandler()
     {
         var project = Project.Create("MyProject", @"C:\Projects");
-        _projectRepository.GetByIdAsync(project.Id).Returns(project);
+        await _projectRepository.SaveAsync(project);
 
         await _sut.SwitchToProjectAsync(project.Id);
 
-        await _switchHandler.Received(1).ResetForProjectAsync(project);
+        Assert.NotNull(_switchHandler.LastSwitchedTo);
+        Assert.Equal(project.Id, _switchHandler.LastSwitchedTo.Id);
     }
 
     [Fact]
     public async Task SwitchToProjectAsync_NonExistentProject_ThrowsNotFoundException()
     {
-        _projectRepository.GetByIdAsync(Arg.Any<Guid>()).Returns((Project?)null);
-
         await Assert.ThrowsAsync<AgentApp.Domain.Exceptions.DomainNotFoundException>(
             () => _sut.SwitchToProjectAsync(Guid.NewGuid()));
     }
@@ -43,6 +48,6 @@ public class ProjectSwitchServiceTests
     {
         await _sut.SwitchToNoneAsync();
 
-        await _switchHandler.Received(1).ResetForStandaloneAsync();
+        Assert.True(_switchHandler.StandaloneResetCalled);
     }
 }

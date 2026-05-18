@@ -1,6 +1,6 @@
 using AgentApp.Application.Providers;
+using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Providers;
-using NSubstitute;
 
 namespace AgentApp.Application.Tests.Providers;
 
@@ -10,8 +10,7 @@ public class ProviderRegistryTests
     public void Register_AndResolve_ReturnsProvider()
     {
         var registry = new ProviderRegistry();
-        var provider = Substitute.For<IProvider>();
-        provider.Capability.Returns(ProviderCapability.ModelCall);
+        var provider = new FakeProvider(ProviderCapability.ModelCall);
 
         registry.Register(provider);
         var resolved = registry.Resolve(ProviderCapability.ModelCall);
@@ -33,10 +32,8 @@ public class ProviderRegistryTests
     public void Register_SameCapabilityTwice_LastOneWins()
     {
         var registry = new ProviderRegistry();
-        var first = Substitute.For<IProvider>();
-        var second = Substitute.For<IProvider>();
-        first.Capability.Returns(ProviderCapability.ModelCall);
-        second.Capability.Returns(ProviderCapability.ModelCall);
+        var first = new FakeProvider(ProviderCapability.ModelCall);
+        var second = new FakeProvider(ProviderCapability.ModelCall);
 
         registry.Register(first);
         registry.Register(second);
@@ -48,13 +45,8 @@ public class ProviderRegistryTests
     public void GetAll_ReturnsAllRegisteredProviders()
     {
         var registry = new ProviderRegistry();
-        var modelProvider = Substitute.For<IProvider>();
-        var credentialProvider = Substitute.For<IProvider>();
-        modelProvider.Capability.Returns(ProviderCapability.ModelCall);
-        credentialProvider.Capability.Returns(ProviderCapability.CredentialAccess);
-
-        registry.Register(modelProvider);
-        registry.Register(credentialProvider);
+        registry.Register(new FakeProvider(ProviderCapability.ModelCall));
+        registry.Register(new FakeProvider(ProviderCapability.CredentialAccess));
 
         Assert.Equal(2, registry.GetAll().Count);
     }

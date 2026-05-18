@@ -1,22 +1,27 @@
 using AgentApp.Application.Orchestration;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Rules;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Orchestration;
 
-public class MdFileServiceTests
+public class MdFileServiceTests : IDisposable
 {
+    private readonly string _tempFolder;
     private readonly IMdFileRepository _repository;
     private readonly ITriggersIndexRepository _triggersIndexRepository;
     private readonly MdFileService _sut;
 
     public MdFileServiceTests()
     {
-        _repository = Substitute.For<IMdFileRepository>();
-        _triggersIndexRepository = Substitute.For<ITriggersIndexRepository>();
+        _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(_tempFolder);
+        _repository = new JsonMdFileRepository(_tempFolder);
+        _triggersIndexRepository = new JsonTriggersIndexRepository(_tempFolder);
         _sut = new MdFileService(_repository, _triggersIndexRepository);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task CreateGlobalFileAsync_ValidInput_SavesAndReturns()
@@ -25,7 +30,9 @@ public class MdFileServiceTests
 
         Assert.Equal(MdFileScope.Global, file.Scope);
         Assert.False(file.IsTechnology);
-        await _repository.Received(1).SaveAsync(Arg.Is<MdFile>(f => f.Name == "coding-standards"));
+        var saved = await _repository.GetByNameAsync("coding-standards", MdFileScope.Global, null);
+        Assert.NotNull(saved);
+        Assert.Equal("coding-standards", saved.Name);
     }
 
     [Fact]
@@ -37,7 +44,8 @@ public class MdFileServiceTests
 
         Assert.Equal(MdFileScope.Project, file.Scope);
         Assert.Equal(projectId, file.ProjectId);
-        await _repository.Received(1).SaveAsync(Arg.Is<MdFile>(f => f.ProjectId == projectId));
+        var saved = await _repository.GetByNameAsync("api-guidelines", MdFileScope.Project, projectId);
+        Assert.NotNull(saved);
     }
 
     [Fact]
@@ -46,17 +54,17 @@ public class MdFileServiceTests
         var file = await _sut.CreateTechnologyFileAsync("dotnet-patterns", "# .NET");
 
         Assert.True(file.IsTechnology);
-        await _repository.Received(1).SaveAsync(Arg.Any<MdFile>());
+        var saved = await _repository.GetByNameAsync("dotnet-patterns", MdFileScope.Global, null);
+        Assert.NotNull(saved);
     }
 
     [Fact]
     public async Task RegisterTriggerAsync_AddsEntryToIndex()
     {
-        var index = TriggersIndex.CreateGlobal();
-        _triggersIndexRepository.GetGlobalAsync().Returns(index);
+        await _sut.RegisterTriggersAsync("coding-standards", ["refactor", "review"],
+            scope: MdFileScope.Global, projectId: null);
 
-        await _sut.RegisterTriggersAsync("coding-standards", ["refactor", "review"], scope: MdFileScope.Global, projectId: null);
-
-        await _triggersIndexRepository.Received(1).SaveAsync(Arg.Is<TriggersIndex>(i => i.HasTrigger("refactor")));
+        var index = await _triggersIndexRepository.GetGlobalAsync();
+        Assert.True(index.HasTrigger("refactor"));
     }
 }

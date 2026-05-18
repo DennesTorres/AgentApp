@@ -2,28 +2,32 @@ using AgentApp.Application.Orchestration;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Orchestration;
 using AgentApp.Domain.Projects;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Orchestration;
 
-public class ReviewOrchestratorServiceTests
+public class ReviewOrchestratorServiceTests : IDisposable
 {
+    private readonly string _tempFolder;
     private readonly IKnowledgeRecordRepository _recordRepository;
     private readonly IOrchestratorSessionRepository _sessionRepository;
     private readonly ReviewOrchestratorService _sut;
 
     public ReviewOrchestratorServiceTests()
     {
-        _recordRepository = Substitute.For<IKnowledgeRecordRepository>();
-        _sessionRepository = Substitute.For<IOrchestratorSessionRepository>();
+        _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(_tempFolder);
+        _recordRepository = new JsonKnowledgeRecordRepository(_tempFolder);
+        _sessionRepository = new JsonOrchestratorSessionRepository(_tempFolder);
         _sut = new ReviewOrchestratorService(_recordRepository, _sessionRepository);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task RunAsync_NewFinding_CreatesNewBacklogRecord()
     {
         var projectId = Guid.NewGuid();
-        _recordRepository.GetByProjectIdAsync(projectId).Returns(new List<KnowledgeRecord>());
         var findings = new List<ReviewFinding>
         {
             new("Missing null check in GateValidator", "GateValidator does not handle null model responses.")
@@ -31,9 +35,10 @@ public class ReviewOrchestratorServiceTests
 
         await _sut.RunAsync(projectId, findings);
 
-        await _recordRepository.Received(1).SaveAsync(Arg.Is<KnowledgeRecord>(r =>
-            r.Title == "Missing null check in GateValidator" &&
-            r.Status == KnowledgeRecordStatus.Backlog));
+        var records = await _recordRepository.GetByProjectIdAsync(projectId);
+        Assert.Single(records);
+        Assert.Equal("Missing null check in GateValidator", records[0].Title);
+        Assert.Equal(KnowledgeRecordStatus.Backlog, records[0].Status);
     }
 
     [Fact]
@@ -44,8 +49,7 @@ public class ReviewOrchestratorServiceTests
             KnowledgeRecordType.Story, null);
         existingRecord.TransitionTo(KnowledgeRecordStatus.InImplementation);
         existingRecord.TransitionTo(KnowledgeRecordStatus.Implemented);
-        _recordRepository.GetByProjectIdAsync(projectId).Returns([existingRecord]);
-        _recordRepository.GetByIdAsync(existingRecord.Id).Returns(existingRecord);
+        await _recordRepository.SaveAsync(existingRecord);
 
         var findings = new List<ReviewFinding>
         {
@@ -54,8 +58,9 @@ public class ReviewOrchestratorServiceTests
 
         await _sut.RunAsync(projectId, findings);
 
-        await _recordRepository.Received(1).SaveAsync(Arg.Is<KnowledgeRecord>(r =>
-            r.Id == existingRecord.Id && r.Status == KnowledgeRecordStatus.InFix));
+        var saved = await _recordRepository.GetByIdAsync(existingRecord.Id);
+        Assert.NotNull(saved);
+        Assert.Equal(KnowledgeRecordStatus.InFix, saved.Status);
     }
 
     [Fact]
@@ -65,28 +70,26 @@ public class ReviewOrchestratorServiceTests
         var existingRecord = KnowledgeRecord.Create(projectId, "Active story", "Desc",
             KnowledgeRecordType.Story, null);
         existingRecord.TransitionTo(KnowledgeRecordStatus.InImplementation);
-        _recordRepository.GetByProjectIdAsync(projectId).Returns([existingRecord]);
+        await _recordRepository.SaveAsync(existingRecord);
 
         var findings = new List<ReviewFinding> { new("Active story", "Finding about active story.") };
 
         await _sut.RunAsync(projectId, findings);
 
-        // Should not save a status transition — only the session save
-        await _recordRepository.DidNotReceive().SaveAsync(Arg.Is<KnowledgeRecord>(r =>
-            r.Id == existingRecord.Id));
+        var saved = await _recordRepository.GetByIdAsync(existingRecord.Id);
+        Assert.NotNull(saved);
+        Assert.Equal(KnowledgeRecordStatus.InImplementation, saved.Status);
     }
 
     [Fact]
     public async Task RunAsync_CompletesSession()
     {
         var projectId = Guid.NewGuid();
-        _recordRepository.GetByProjectIdAsync(projectId).Returns(new List<KnowledgeRecord>());
 
         await _sut.RunAsync(projectId, []);
 
-        // Service saves session twice (Running on create, Completed on finish).
-        // NSubstitute captures by reference so both appear Completed after mutation — verify count=2.
-        await _sessionRepository.Received(2).SaveAsync(Arg.Is<OrchestratorSession>(s =>
-            s.AgentType == AgentType.Review));
+        var sessions = await _sessionRepository.GetByProjectIdAsync(projectId);
+        Assert.Single(sessions);
+        Assert.Equal(OrchestratorStatus.Completed, sessions[0].Status);
     }
 }
