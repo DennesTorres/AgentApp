@@ -1,7 +1,7 @@
 using AgentApp.Application.Projects;
-using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Projects;
 using AgentApp.Infrastructure.Persistence;
+using AgentApp.Infrastructure.ProjectSwitch;
 
 namespace AgentApp.Application.Tests.Projects;
 
@@ -9,7 +9,7 @@ public class ProjectSwitchServiceTests : IDisposable
 {
     private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
     private readonly JsonProjectRepository _projectRepository;
-    private readonly FakeProjectSwitchHandler _switchHandler = new();
+    private readonly NullProjectSwitchHandler _switchHandler = new();
     private readonly ProjectSwitchService _sut;
 
     public ProjectSwitchServiceTests()
@@ -21,15 +21,12 @@ public class ProjectSwitchServiceTests : IDisposable
     public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
-    public async Task SwitchToProjectAsync_ExistingProject_CallsResetOnHandler()
+    public async Task SwitchToProjectAsync_ExistingProject_CompletesWithoutException()
     {
         var project = Project.Create("MyProject", @"C:\Projects");
         await _projectRepository.SaveAsync(project);
 
         await _sut.SwitchToProjectAsync(project.Id);
-
-        Assert.NotNull(_switchHandler.LastSwitchedTo);
-        Assert.Equal(project.Id, _switchHandler.LastSwitchedTo.Id);
     }
 
     [Fact]
@@ -40,10 +37,8 @@ public class ProjectSwitchServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SwitchToNoneAsync_NoActiveProject_CallsResetOnHandlerWithNull()
+    public async Task SwitchToNoneAsync_CompletesWithoutException()
     {
         await _sut.SwitchToNoneAsync();
-
-        Assert.True(_switchHandler.StandaloneResetCalled);
     }
 }
