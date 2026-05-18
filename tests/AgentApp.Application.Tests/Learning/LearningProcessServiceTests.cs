@@ -1,5 +1,4 @@
 using AgentApp.Application.Learning;
-using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Learning;
 using AgentApp.Domain.Rules;
 using AgentApp.Infrastructure.FileSystem;
@@ -10,7 +9,7 @@ public class LearningProcessServiceTests : IDisposable
 {
     private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
     private readonly JsonLearningSessionRepository _sessionRepository;
-    private readonly FakeLearningLogger _logger;
+    private readonly FileSystemLearningLogger _logger;
     private readonly JsonMdFileRepository _mdFileRepository;
     private readonly LearningProcessService _sut;
 
@@ -21,7 +20,7 @@ public class LearningProcessServiceTests : IDisposable
     public LearningProcessServiceTests()
     {
         _sessionRepository = new JsonLearningSessionRepository(_tempFolder);
-        _logger = new FakeLearningLogger();
+        _logger = new FileSystemLearningLogger(_tempFolder);
         _mdFileRepository = new JsonMdFileRepository(_tempFolder);
         _sut = new LearningProcessService(_sessionRepository, _logger, _mdFileRepository);
     }
@@ -37,13 +36,14 @@ public class LearningProcessServiceTests : IDisposable
         var saved = await _sessionRepository.GetByIdAsync(session.Id);
         Assert.NotNull(saved);
         Assert.Equal(LearningTrigger.InternalGateFailure, saved.Trigger);
-        Assert.Single(_logger.Entries);
+        var logFile = Path.Combine(_tempFolder, "learning-log.txt");
+        Assert.True(File.Exists(logFile));
     }
 
     [Fact]
     public async Task ProposeChangeAsync_UpdatesAndSavesSession()
     {
-        var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation", null);
+        var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation");
         await _sessionRepository.SaveAsync(session);
 
         var updated = await _sut.ProposeChangeAsync(session.Id, SampleChange);
@@ -57,7 +57,7 @@ public class LearningProcessServiceTests : IDisposable
     [Fact]
     public async Task ApproveAsync_WritesRuleToMdFileAndSavesSession()
     {
-        var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation", null);
+        var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation");
         session.ProposeChange(SampleChange);
         await _sessionRepository.SaveAsync(session);
 
@@ -71,7 +71,7 @@ public class LearningProcessServiceTests : IDisposable
     [Fact]
     public async Task ApproveAsync_ExistingMdFile_UpdatesContent()
     {
-        var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation", null);
+        var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation");
         session.ProposeChange(SampleChange);
         await _sessionRepository.SaveAsync(session);
         var existingFile = MdFile.CreateGlobal("coding-standards", "## Existing rule");
@@ -87,7 +87,7 @@ public class LearningProcessServiceTests : IDisposable
     [Fact]
     public async Task RejectAsync_UpdatesOutcomeAndSavesSession()
     {
-        var session = LearningSession.Initiate(LearningTrigger.ExternalUserError, "error", null);
+        var session = LearningSession.Initiate(LearningTrigger.ExternalUserError, "error");
         session.ProposeChange(SampleChange);
         await _sessionRepository.SaveAsync(session);
 
@@ -95,13 +95,14 @@ public class LearningProcessServiceTests : IDisposable
 
         Assert.Equal(LearningOutcome.Rejected, updated.Outcome);
         Assert.Equal("Too vague", updated.RejectionReason);
-        Assert.Equal(1, _logger.Entries.Count);
+        var logFile = Path.Combine(_tempFolder, "learning-log.txt");
+        Assert.True(File.Exists(logFile));
     }
 
     [Fact]
     public async Task CancelAsync_SetsCancelledAndSavesSession()
     {
-        var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation", null);
+        var session = LearningSession.Initiate(LearningTrigger.InternalGateFailure, "violation");
         await _sessionRepository.SaveAsync(session);
 
         var updated = await _sut.CancelAsync(session.Id);

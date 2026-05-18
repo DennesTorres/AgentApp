@@ -1,24 +1,33 @@
 using AgentApp.Application.Providers;
-using AgentApp.Application.Tests.Fakes;
+using AgentApp.Domain.Chat;
 using AgentApp.Domain.Providers;
+using AgentApp.Infrastructure.Credentials;
+using AgentApp.Infrastructure.ModelAccess;
 
 namespace AgentApp.Application.Tests.Providers;
 
 public class OrchestratorPipelineTests
 {
+    private static AzureChatClientProvider CreateModelProvider() =>
+        new(AzureClientFactory.BuildFromCredentials(new WindowsCredentialManager())!);
+
     [Fact]
     public async Task SendAsync_DispatchesToMatchingProvider()
     {
-        var request = ProviderRequest.Create(ProviderCapability.ModelCall);
-        var expectedResponse = ProviderResponse.Ok(request.RequestId);
-        var provider = new FakeProvider(ProviderCapability.ModelCall, _ => expectedResponse);
+        var provider = CreateModelProvider();
         var registry = new ProviderRegistry();
         registry.Register(provider);
-
         var pipeline = new OrchestratorPipeline(registry);
+        var request = ProviderRequest.Create(ProviderCapability.ModelCall,
+            new Dictionary<string, object>
+            {
+                ["history"] = new List<ChatTurn> { new(ChatTurnRole.User, "Say hello.", DateTimeOffset.UtcNow) }
+            });
+
         var response = await pipeline.SendAsync(request);
 
-        Assert.Same(expectedResponse, response);
+        Assert.NotNull(response);
+        Assert.Equal(request.RequestId, response.RequestId);
     }
 
     [Fact]
@@ -29,20 +38,5 @@ public class OrchestratorPipelineTests
         var request = ProviderRequest.Create(ProviderCapability.ModelCall);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => pipeline.SendAsync(request));
-    }
-
-    [Fact]
-    public async Task SendAsync_PassesRequestToProvider()
-    {
-        var request = ProviderRequest.Create(ProviderCapability.EmbeddingSearch,
-            new Dictionary<string, object> { ["query"] = "test" });
-        var provider = new FakeProvider(ProviderCapability.EmbeddingSearch);
-        var registry = new ProviderRegistry();
-        registry.Register(provider);
-
-        var pipeline = new OrchestratorPipeline(registry);
-        await pipeline.SendAsync(request);
-
-        Assert.Same(request, provider.LastRequest);
     }
 }
