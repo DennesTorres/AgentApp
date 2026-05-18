@@ -1,6 +1,6 @@
 using AgentApp.Application.ExecutionStates;
+using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.ExecutionStates;
-using NSubstitute;
 
 namespace AgentApp.Application.Tests.ExecutionStates;
 
@@ -9,9 +9,7 @@ public class ExecutionStateRegistryTests
     [Fact]
     public void Register_And_Resolve_Returns_Provider()
     {
-        var provider = Substitute.For<IExecutionStateProvider>();
-        provider.StateName.Returns(ExecutionStateName.Chat);
-
+        var provider = new FakeExecutionStateProvider(ExecutionStateName.Chat);
         var registry = new ExecutionStateRegistry();
         registry.Register(provider);
 
@@ -29,10 +27,8 @@ public class ExecutionStateRegistryTests
     [Fact]
     public void Register_SameState_Twice_LastWins()
     {
-        var first = Substitute.For<IExecutionStateProvider>();
-        first.StateName.Returns(ExecutionStateName.Implementing);
-        var second = Substitute.For<IExecutionStateProvider>();
-        second.StateName.Returns(ExecutionStateName.Implementing);
+        var first = new FakeExecutionStateProvider(ExecutionStateName.Implementing);
+        var second = new FakeExecutionStateProvider(ExecutionStateName.Implementing);
 
         var registry = new ExecutionStateRegistry();
         registry.Register(first);
@@ -44,10 +40,8 @@ public class ExecutionStateRegistryTests
     [Fact]
     public void GetAll_Returns_All_Registered()
     {
-        var chatProvider = Substitute.For<IExecutionStateProvider>();
-        chatProvider.StateName.Returns(ExecutionStateName.Chat);
-        var researchProvider = Substitute.For<IExecutionStateProvider>();
-        researchProvider.StateName.Returns(ExecutionStateName.Research);
+        var chatProvider = new FakeExecutionStateProvider(ExecutionStateName.Chat);
+        var researchProvider = new FakeExecutionStateProvider(ExecutionStateName.Research);
 
         var registry = new ExecutionStateRegistry();
         registry.Register(chatProvider);

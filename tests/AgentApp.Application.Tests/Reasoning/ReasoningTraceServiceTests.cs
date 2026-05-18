@@ -1,20 +1,22 @@
 using AgentApp.Application.Reasoning;
-using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Reasoning;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Reasoning;
 
-public class ReasoningTraceServiceTests
+public class ReasoningTraceServiceTests : IDisposable
 {
-    private readonly IReasoningTraceRepository _repository;
+    private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly JsonReasoningTraceRepository _repository;
     private readonly ReasoningTraceService _sut;
 
     public ReasoningTraceServiceTests()
     {
-        _repository = Substitute.For<IReasoningTraceRepository>();
+        _repository = new JsonReasoningTraceRepository(_tempFolder);
         _sut = new ReasoningTraceService(_repository);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task CaptureAsync_ValidInputs_SavesTraceAndReturnsReferenceId()
@@ -25,10 +27,10 @@ public class ReasoningTraceServiceTests
         var referenceId = await _sut.CaptureAsync(sessionId, messageId, "Model evaluated approach X over Y.");
 
         Assert.NotEqual(Guid.Empty, referenceId);
-        await _repository.Received(1).SaveAsync(Arg.Is<ReasoningTrace>(t =>
-            t.SessionId == sessionId &&
-            t.MessageId == messageId &&
-            t.Id == referenceId));
+        var saved = await _repository.GetByIdAsync(referenceId);
+        Assert.NotNull(saved);
+        Assert.Equal(sessionId, saved.SessionId);
+        Assert.Equal(messageId, saved.MessageId);
     }
 
     [Fact]
@@ -37,7 +39,7 @@ public class ReasoningTraceServiceTests
         var referenceId = Guid.NewGuid();
         var expected = ReasoningTrace.Reconstitute(
             referenceId, Guid.NewGuid(), Guid.NewGuid(), "Some reasoning", DateTimeOffset.UtcNow);
-        _repository.GetByIdAsync(referenceId).Returns(expected);
+        await _repository.SaveAsync(expected);
 
         var result = await _sut.GetByReferenceIdAsync(referenceId);
 
@@ -48,8 +50,6 @@ public class ReasoningTraceServiceTests
     [Fact]
     public async Task GetByReferenceIdAsync_NonExistingId_ReturnsNull()
     {
-        _repository.GetByIdAsync(Arg.Any<Guid>()).Returns((ReasoningTrace?)null);
-
         var result = await _sut.GetByReferenceIdAsync(Guid.NewGuid());
 
         Assert.Null(result);

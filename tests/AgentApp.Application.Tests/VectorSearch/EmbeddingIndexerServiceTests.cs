@@ -1,13 +1,13 @@
+using AgentApp.Application.Tests.Fakes;
 using AgentApp.Application.VectorSearch;
 using AgentApp.Domain.VectorSearch;
-using NSubstitute;
 
 namespace AgentApp.Application.Tests.VectorSearch;
 
 public class EmbeddingIndexerServiceTests
 {
-    private readonly IEmbeddingService _embeddingService = Substitute.For<IEmbeddingService>();
-    private readonly IVectorIndex _index = Substitute.For<IVectorIndex>();
+    private readonly FakeEmbeddingService _embeddingService = new();
+    private readonly FakeVectorIndex _index = new();
     private readonly EmbeddingIndexerService _sut;
 
     public EmbeddingIndexerServiceTests()
@@ -18,25 +18,21 @@ public class EmbeddingIndexerServiceTests
     [Fact]
     public async Task IndexAsync_CallsEmbeddingServiceWithContent()
     {
-        var vector = EmbeddingVector.Create(new float[] { 1f, 0f });
-        _embeddingService.GetEmbeddingAsync("session content", Arg.Any<CancellationToken>())
-            .Returns(vector);
+        _embeddingService.SetDefaultResponse(EmbeddingVector.Create(new float[] { 1f, 0f }));
 
         await _sut.IndexAsync("sess-1", "session content");
 
-        await _embeddingService.Received(1)
-            .GetEmbeddingAsync("session content", Arg.Any<CancellationToken>());
+        Assert.Equal("session content", _embeddingService.LastContent);
     }
 
     [Fact]
     public async Task IndexAsync_AddsResultToVectorIndex()
     {
-        var vector = EmbeddingVector.Create(new float[] { 0.5f, 0.5f });
-        _embeddingService.GetEmbeddingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(vector);
+        _embeddingService.SetDefaultResponse(EmbeddingVector.Create(new float[] { 0.5f, 0.5f }));
 
         await _sut.IndexAsync("sess-1", "some content");
 
-        _index.Received(1).Add("sess-1", "some content", vector);
+        Assert.Equal("sess-1", _index.LastId);
+        Assert.Equal("some content", _index.LastContent);
     }
 }

@@ -1,31 +1,30 @@
 using AgentApp.Application.Orchestration;
-using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Rules;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Orchestration;
 
-public class ContextAssemblerTests
+public class ContextAssemblerTests : IDisposable
 {
-    private readonly IMdFileRepository _mdFileRepository;
-    private readonly ITriggersIndexRepository _triggersIndexRepository;
+    private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly JsonMdFileRepository _mdFileRepository;
+    private readonly JsonTriggersIndexRepository _triggersIndexRepository;
     private readonly ContextAssembler _sut;
 
     public ContextAssemblerTests()
     {
-        _mdFileRepository = Substitute.For<IMdFileRepository>();
-        _triggersIndexRepository = Substitute.For<ITriggersIndexRepository>();
+        _mdFileRepository = new JsonMdFileRepository(_tempFolder);
+        _triggersIndexRepository = new JsonTriggersIndexRepository(_tempFolder);
         _sut = new ContextAssembler(_mdFileRepository, _triggersIndexRepository);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task AssembleBaseContextAsync_AlwaysIncludesCoreFile()
     {
         var coreFile = MdFile.CreateGlobal("core", "# Core rules");
-        _mdFileRepository.GetByNameAsync("core", MdFileScope.Global, null)
-            .Returns(coreFile);
-        var globalIndex = TriggersIndex.CreateGlobal();
-        _triggersIndexRepository.GetGlobalAsync().Returns(globalIndex);
+        await _mdFileRepository.SaveAsync(coreFile);
 
         var context = await _sut.AssembleBaseContextAsync(projectId: null);
 
@@ -36,11 +35,6 @@ public class ContextAssemblerTests
     [Fact]
     public async Task AssembleBaseContextAsync_NoCoreFile_ReturnsContextWithoutCore()
     {
-        _mdFileRepository.GetByNameAsync("core", MdFileScope.Global, null)
-            .Returns((MdFile?)null);
-        var globalIndex = TriggersIndex.CreateGlobal();
-        _triggersIndexRepository.GetGlobalAsync().Returns(globalIndex);
-
         var context = await _sut.AssembleBaseContextAsync(projectId: null);
 
         Assert.Empty(context.LoadedFiles);
@@ -49,9 +43,9 @@ public class ContextAssemblerTests
     [Fact]
     public async Task NeedsEnrichmentCallAsync_MessageMatchesTrigger_ReturnsTrue()
     {
-        var index = TriggersIndex.CreateGlobal();
+        var index = await _triggersIndexRepository.GetGlobalAsync();
         index.AddEntry("coding-standards", ["refactor"]);
-        _triggersIndexRepository.GetGlobalAsync().Returns(index);
+        await _triggersIndexRepository.SaveAsync(index);
 
         var result = await _sut.NeedsEnrichmentCallAsync("Please refactor this method", projectId: null);
 
@@ -61,9 +55,6 @@ public class ContextAssemblerTests
     [Fact]
     public async Task NeedsEnrichmentCallAsync_NoTriggerMatch_ReturnsFalse()
     {
-        var index = TriggersIndex.CreateGlobal();
-        _triggersIndexRepository.GetGlobalAsync().Returns(index);
-
         var result = await _sut.NeedsEnrichmentCallAsync("Hello world", projectId: null);
 
         Assert.False(result);
@@ -73,8 +64,7 @@ public class ContextAssemblerTests
     public async Task LoadFilesForNamesAsync_ValidNames_ReturnsRequestedFiles()
     {
         var fileA = MdFile.CreateGlobal("coding-standards", "# Standards");
-        _mdFileRepository.GetByNameAsync("coding-standards", MdFileScope.Global, null)
-            .Returns(fileA);
+        await _mdFileRepository.SaveAsync(fileA);
 
         var files = await _sut.LoadFilesForNamesAsync(["coding-standards"], projectId: null);
 
