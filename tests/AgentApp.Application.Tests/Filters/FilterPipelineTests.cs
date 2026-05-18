@@ -1,24 +1,23 @@
 using AgentApp.Application.Filters;
 using AgentApp.Domain.Filters;
-using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Rules;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Filters;
 
-public class FilterPipelineTests
+public class FilterPipelineTests : IDisposable
 {
-    private readonly IFilterRuleRepository _repository;
+    private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly JsonFilterRuleRepository _repository;
     private readonly FilterPipeline _sut;
 
     public FilterPipelineTests()
     {
-        _repository = Substitute.For<IFilterRuleRepository>();
+        _repository = new JsonFilterRuleRepository(_tempFolder);
         _sut = new FilterPipeline(_repository);
-
-        // Default: no rules
-        _repository.GetAllAsync(Arg.Any<MdFileScope>(), Arg.Any<Guid?>()).Returns([]);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task ApplyFilter1Async_NoMatchingRule_ReturnsUnchanged()
@@ -33,7 +32,7 @@ public class FilterPipelineTests
     {
         var rule = FilterRule.Create("trunc", FilterTarget.Filter1, "bash-output",
             FilterTransformation.Truncate, maxLength: 10, MdFileScope.Global, null);
-        _repository.GetAllAsync(MdFileScope.Global, null).Returns([rule]);
+        await _repository.SaveAsync(rule);
 
         var result = await _sut.ApplyFilter1Async("Hello World Extra", "bash-output", null);
 
@@ -46,7 +45,7 @@ public class FilterPipelineTests
     {
         var rule = FilterRule.Create("trunc", FilterTarget.Filter1, "bash-output",
             FilterTransformation.Truncate, maxLength: 100, MdFileScope.Global, null);
-        _repository.GetAllAsync(MdFileScope.Global, null).Returns([rule]);
+        await _repository.SaveAsync(rule);
 
         var result = await _sut.ApplyFilter1Async("short", "bash-output", null);
 
@@ -58,9 +57,13 @@ public class FilterPipelineTests
     {
         var rule = FilterRule.Create("strip-gate", FilterTarget.Filter2, "model-response",
             FilterTransformation.StripGateBlocks, null, MdFileScope.Global, null);
-        _repository.GetAllAsync(MdFileScope.Global, null).Returns([rule]);
+        await _repository.SaveAsync(rule);
 
-        var response = "User text\n```gate-output\n{\"action\": \"load\"}\n```\nMore text";
+        var response = @"User text
+```gate-output
+{""action"": ""load""}
+```
+More text";
         var result = await _sut.ApplyFilter2Async(response, "model-response", null);
 
         Assert.DoesNotContain("gate-output", result);
@@ -77,12 +80,11 @@ public class FilterPipelineTests
         var projectRule = FilterRule.Create("project-trunc", FilterTarget.Filter1, "bash-output",
             FilterTransformation.Truncate, maxLength: 50, MdFileScope.Project, projectId);
 
-        _repository.GetAllAsync(MdFileScope.Project, projectId).Returns([projectRule]);
-        _repository.GetAllAsync(MdFileScope.Global, null).Returns([globalRule]);
+        await _repository.SaveAsync(globalRule);
+        await _repository.SaveAsync(projectRule);
 
         var result = await _sut.ApplyFilter1Async("Hello World Extra Content", "bash-output", projectId);
 
-        // Project rule (max 50) should override global rule (max 10)
         Assert.True(result.Length > 10);
     }
 
@@ -91,12 +93,11 @@ public class FilterPipelineTests
     {
         var rule = FilterRule.Create("filter1-rule", FilterTarget.Filter1, "model-response",
             FilterTransformation.Truncate, maxLength: 5, MdFileScope.Global, null);
-        _repository.GetAllAsync(MdFileScope.Global, null).Returns([rule]);
+        await _repository.SaveAsync(rule);
 
         var content = "This is a long model response";
         var result = await _sut.ApplyFilter2Async(content, "model-response", null);
 
-        // Filter1 rule should not apply to Filter2
         Assert.Equal(content, result);
     }
 }
