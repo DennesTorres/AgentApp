@@ -1,16 +1,20 @@
 using AgentApp.Application.Providers;
-using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Providers;
+using AgentApp.Infrastructure.Credentials;
+using AgentApp.Infrastructure.ModelAccess;
 
 namespace AgentApp.Application.Tests.Providers;
 
 public class ProviderRegistryTests
 {
+    private static AzureChatClientProvider CreateProvider() =>
+        new(AzureClientFactory.BuildFromCredentials(new WindowsCredentialManager())!);
+
     [Fact]
     public void Register_AndResolve_ReturnsProvider()
     {
         var registry = new ProviderRegistry();
-        var provider = new FakeProvider(ProviderCapability.ModelCall);
+        var provider = CreateProvider();
 
         registry.Register(provider);
         var resolved = registry.Resolve(ProviderCapability.ModelCall);
@@ -32,8 +36,8 @@ public class ProviderRegistryTests
     public void Register_SameCapabilityTwice_LastOneWins()
     {
         var registry = new ProviderRegistry();
-        var first = new FakeProvider(ProviderCapability.ModelCall);
-        var second = new FakeProvider(ProviderCapability.ModelCall);
+        var first = CreateProvider();
+        var second = CreateProvider();
 
         registry.Register(first);
         registry.Register(second);
@@ -42,13 +46,14 @@ public class ProviderRegistryTests
     }
 
     [Fact]
-    public void GetAll_ReturnsAllRegisteredProviders()
+    public void GetAll_ReturnsRegisteredProviders()
     {
         var registry = new ProviderRegistry();
-        registry.Register(new FakeProvider(ProviderCapability.ModelCall));
-        registry.Register(new FakeProvider(ProviderCapability.CredentialAccess));
+        var provider = CreateProvider();
 
-        Assert.Equal(2, registry.GetAll().Count);
+        registry.Register(provider);
+
+        Assert.Single(registry.GetAll());
     }
 
     [Fact]

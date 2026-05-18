@@ -1,24 +1,21 @@
 using AgentApp.Application.Context;
-using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Context;
-using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Settings;
+using AgentApp.Infrastructure.FileSystem;
 using AgentApp.Infrastructure.Persistence;
 
 namespace AgentApp.Application.Tests.Context;
 
 public class ContextWindowManagerTests : IDisposable
 {
-    private readonly string _tempFolder;
-    private readonly FakeConversationHistoryRepository _historyRepository;
-    private readonly ISettingsRepository _settingsRepository;
+    private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly JsonConversationHistoryRepository _historyRepository;
+    private readonly JsonSettingsRepository _settingsRepository;
     private readonly ContextWindowManager _sut;
 
     public ContextWindowManagerTests()
     {
-        _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(_tempFolder);
-        _historyRepository = new FakeConversationHistoryRepository();
+        _historyRepository = new JsonConversationHistoryRepository(_tempFolder);
         _settingsRepository = new JsonSettingsRepository(_tempFolder);
         _sut = new ContextWindowManager(_historyRepository, _settingsRepository);
     }
@@ -54,7 +51,8 @@ public class ContextWindowManagerTests : IDisposable
 
         await _sut.ArchiveAndResetAsync(ctx, sessionId, "Summary of the previous conversation.");
 
-        Assert.True(_historyRepository.WasArchived(sessionId));
+        var archivePath = Path.Combine(_tempFolder, $"history-archive-{sessionId}.json");
+        Assert.True(File.Exists(archivePath));
     }
 
     [Fact]
@@ -80,7 +78,7 @@ public class ContextWindowManagerTests : IDisposable
 
         await _sut.ArchiveAndResetAsync(ctx, sessionId, "Summary");
 
-        var saved = _historyRepository.GetSaved(sessionId);
+        var saved = await _historyRepository.GetBySessionIdAsync(sessionId);
         Assert.NotEmpty(saved);
     }
 }
