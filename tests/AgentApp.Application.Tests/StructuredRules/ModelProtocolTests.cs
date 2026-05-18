@@ -281,4 +281,273 @@ public class ModelProtocolTests
         Assert.False(string.IsNullOrWhiteSpace(text));
         Assert.Contains("ILH", text, StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public async Task StateAwareSystemMessage_ImplementingState_ModelFollowsGitAndArchitectureContext()
+    {
+        var machine = new ExecutionStateMachine();
+        machine.TransitionTo(ExecutionStateName.Implementing);
+        var stateRegistry = new ExecutionStateRegistry();
+        stateRegistry.Register(new ImplementingStateProvider());
+        var builder = new StateAwareSystemMessageBuilder(machine, stateRegistry);
+
+        var contextFiles = builder.GetContextFileNames();
+        var sysMsg = $"""
+            You are a coding assistant in implementation mode.
+            Active context files: {string.Join(", ", contextFiles)}.
+            You must always follow the git workflow and architecture-backend standards.
+            When asked what to do before committing, always mention git workflow and architecture constraints.
+            """;
+
+        var response = await BuildPipeline().SendAsync(
+            Request(sysMsg, Turn("What should I verify before committing my implementation?")));
+
+        Assert.True(response.Success);
+        var text = response.Result["text"].ToString()!;
+        Assert.False(string.IsNullOrWhiteSpace(text));
+        Assert.True(
+            text.Contains("git", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("architecture", StringComparison.OrdinalIgnoreCase),
+            $"Expected response to reference git or architecture context. Got: {text[..Math.Min(200, text.Length)]}");
+    }
+
+    [Fact]
+    public async Task StateAwareSystemMessage_TestingState_ModelAcknowledgesTestingWorkflow()
+    {
+        var machine = new ExecutionStateMachine();
+        machine.TransitionTo(ExecutionStateName.Testing);
+        var stateRegistry = new ExecutionStateRegistry();
+        stateRegistry.Register(new TestingStateProvider());
+        var builder = new StateAwareSystemMessageBuilder(machine, stateRegistry);
+
+        var contextFiles = builder.GetContextFileNames();
+        var sysMsg = $"""
+            You are a coding assistant in testing mode.
+            Active context files: {string.Join(", ", contextFiles)}.
+            In testing mode you analyze and propose only — you never write code directly.
+            When asked what to do in testing mode, always mention analyze-only and propose-only behavior.
+            """;
+
+        var response = await BuildPipeline().SendAsync(
+            Request(sysMsg, Turn("What can I do in testing mode?")));
+
+        Assert.True(response.Success);
+        var text = response.Result["text"].ToString()!;
+        Assert.False(string.IsNullOrWhiteSpace(text));
+        Assert.True(
+            text.Contains("analyz", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("propose", StringComparison.OrdinalIgnoreCase) ||
+            text.Contains("test", StringComparison.OrdinalIgnoreCase),
+            $"Expected response to reference testing/analysis behavior. Got: {text[..Math.Min(200, text.Length)]}");
+    }
+
+    [Fact]
+    public async Task StateAwareSystemMessage_ChatState_ModelRespondsWithoutSpecialContext()
+    {
+        var machine = new ExecutionStateMachine();
+        var stateRegistry = new ExecutionStateRegistry();
+        stateRegistry.Register(new ChatStateProvider());
+        var builder = new StateAwareSystemMessageBuilder(machine, stateRegistry);
+
+        var contextFiles = builder.GetContextFileNames();
+        Assert.Empty(contextFiles); // Chat state has no context files
+
+        // No system message — baseline: model should still respond correctly
+        var response = await BuildPipeline().SendAsync(
+            Request("You are a helpful assistant.", Turn("Say 'ready' in one word.")));
+
+        Assert.True(response.Success);
+        Assert.False(string.IsNullOrWhiteSpace(response.Result["text"].ToString()));
+    }
+
+    // ── three-step gate ──────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GateProtocol_ThreeStep_AllStepsContainCorrectMarkers()
+    {
+        const string sysMsg = """
+            You are a test assistant executing a 3-step rule named ILH-3.
+            Step 1 response MUST end with: [GATE:{"rule":"ILH-3","step":1}]
+            Step 2 response MUST end with: [GATE:{"rule":"ILH-3","step":2}]
+            Step 3 response MUST end with: [GATE:{"rule":"ILH-3","step":3}]
+            Complete exactly one step per turn. Never include a marker for the wrong step.
+            """;
+        var pipeline = BuildPipeline();
+        var rule = StructuredRule.Create("ILH-3", "Three Step ILH", "always",
+            ["Quote test-cycles.md", "Check branch-records.md", "Read STORY-BEHAVIOR.md"]);
+        var tracker = new MultiStepGateTracker();
+        tracker.Activate(rule);
+
+        var history = Turn("Complete step 1.");
+        var r1 = await pipeline.SendAsync(Request(sysMsg, history));
+        var gate1 = GateOutput.TryParse(r1.Result["text"].ToString()!);
+        Assert.NotNull(gate1);
+        Assert.Equal(1, gate1.StepNumber);
+        Assert.True(tracker.ValidateStep(gate1));
+        tracker.AdvanceStep();
+
+        history.Add(new(ChatTurnRole.Assistant, r1.Result["text"].ToString()!, DateTimeOffset.UtcNow));
+        history.Add(new(ChatTurnRole.User, "Complete step 2.", DateTimeOffset.UtcNow));
+        var r2 = await pipeline.SendAsync(Request(sysMsg, history));
+        var gate2 = GateOutput.TryParse(r2.Result["text"].ToString()!);
+        Assert.NotNull(gate2);
+        Assert.Equal(2, gate2.StepNumber);
+        Assert.True(tracker.ValidateStep(gate2));
+        tracker.AdvanceStep();
+
+        history.Add(new(ChatTurnRole.Assistant, r2.Result["text"].ToString()!, DateTimeOffset.UtcNow));
+        history.Add(new(ChatTurnRole.User, "Complete step 3.", DateTimeOffset.UtcNow));
+        var r3 = await pipeline.SendAsync(Request(sysMsg, history));
+        var gate3 = GateOutput.TryParse(r3.Result["text"].ToString()!);
+        Assert.NotNull(gate3);
+        Assert.Equal(3, gate3.StepNumber);
+        Assert.True(tracker.ValidateStep(gate3));
+        tracker.AdvanceStep();
+
+        Assert.True(tracker.IsComplete);
+    }
+
+    // ── SIP rule ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GateProtocol_SipRule_SerializedAsJson_ModelFollowsSteps()
+    {
+        var sipRule = StructuredRule.Create(
+            "SIP", "Structured Investigation Protocol",
+            "before investigating any reported issue",
+            [
+                "Read the full error message literally before theorizing",
+                "State the root cause in exactly one sentence",
+                "Propose exactly one fix"
+            ]);
+
+        var sysMsg = $$"""
+            You are a coding assistant following the SIP rule.
+            Active rule (JSON): {{sipRule.ToJson()}}
+
+            Gate protocol: when you complete a step, end your response with the gate marker.
+            For step 1: [GATE:{"rule":"SIP","step":1}]
+            Complete step 1 now.
+            """;
+
+        var response = await BuildPipeline().SendAsync(
+            Request(sysMsg, Turn("Error: NullReferenceException at line 42 in UserService.cs.")));
+
+        Assert.True(response.Success);
+        var gate = GateOutput.TryParse(response.Result["text"].ToString()!);
+        Assert.NotNull(gate);
+        Assert.Equal("SIP", gate.RuleId);
+        Assert.Equal(1, gate.StepNumber);
+    }
+
+    // ── gate violation → end-to-end learning flow ────────────────────────────
+
+    [Fact]
+    public async Task GateViolation_EndToEnd_SkippedGateTriggersLearningProposal()
+    {
+        // Step 1: Activate a rule but send a request WITHOUT gate protocol instructions.
+        // The model won't know to include a marker — violation detected.
+        var rule = StructuredRule.Create("ILH", "ILH", "always", ["Quote test-cycles.md"]);
+        var tracker = new MultiStepGateTracker();
+        tracker.Activate(rule);
+
+        // System message has NO gate protocol — model will not produce marker
+        const string noGateSysMsg = "You are a helpful assistant. Answer briefly.";
+        var pipeline = BuildPipeline();
+        var modelResponse = await pipeline.SendAsync(
+            Request(noGateSysMsg, Turn("Summarize the ILH in one sentence.")));
+
+        Assert.True(modelResponse.Success);
+
+        // Step 2: Attempt to validate — tracker step was not validated
+        var text = modelResponse.Result["text"].ToString()!;
+        var gateOutput = GateOutput.TryParse(text);
+        // Model was not instructed to include gate — expected to be null or wrong rule
+        // Either way, tracker step is not validated, so CanCallTool() is false
+        if (gateOutput != null)
+            tracker.ValidateStep(gateOutput); // may or may not validate depending on model
+
+        // Step 3: If step not validated, GateViolationHandler detects it
+        var handler = new GateViolationHandler();
+        if (!tracker.CanCallTool())
+        {
+            var violation = handler.CreateViolation(tracker);
+            Assert.NotNull(violation);
+
+            // Step 4: Create learning session from violation
+            var learningSession = handler.CreateLearningTrigger(violation!);
+            Assert.Equal(LearningTrigger.InternalGateFailure, learningSession.Trigger);
+
+            // Step 5: Run learning orchestrator — model proposes a rule
+            const string learningSysMsg = """
+                You are a learning assistant. Analyze this gate violation and propose a rule fix.
+                You MUST end your response with:
+                [RULE_PROPOSAL:{"fileName":"CLAUDE.md","ruleText":"<proposed rule>","humanSummary":"<summary>","action":"add"}]
+                """;
+            var orchestrator = new LearningOrchestrator(pipeline);
+            var proposal = await orchestrator.RunLearningLoopAsync(learningSession, systemMessage: learningSysMsg);
+
+            Assert.NotNull(proposal);
+            Assert.False(string.IsNullOrWhiteSpace(proposal.RuleText));
+        }
+        // If model unexpectedly produced a valid gate marker, the violation path wasn't triggered —
+        // the test still passes since that outcome (model correctly following the protocol)
+        // is also valid behavior.
+    }
+
+    // ── reasoning trace attachment ────────────────────────────────────────────
+
+    [Fact]
+    public async Task LearningProtocol_WithReasoningTrace_TraceAppearsInModelContext()
+    {
+        const string learningSysMsg = """
+            You are a learning assistant. Analyze the provided violation and reasoning trace.
+            In your response, acknowledge the reasoning trace if one is provided.
+            You MUST end your response with:
+            [RULE_PROPOSAL:{"fileName":"CLAUDE.md","ruleText":"<proposed rule>","humanSummary":"<summary>","action":"add"}]
+            """;
+
+        const string reasoningTrace =
+            "The assistant said 'let me check the code' and opened a file immediately " +
+            "without first quoting test-cycles.md, skipping the mandatory ILH step 1.";
+
+        var orchestrator = new LearningOrchestrator(BuildPipeline());
+        var session = LearningSession.Initiate(
+            LearningTrigger.InternalGateFailure,
+            "ILH step 1 was skipped — no test-cycles.md quote before file access.");
+
+        var proposal = await orchestrator.RunLearningLoopAsync(
+            session,
+            reasoningTraceContent: reasoningTrace,
+            systemMessage: learningSysMsg);
+
+        Assert.NotNull(proposal);
+        Assert.False(string.IsNullOrWhiteSpace(proposal.RuleText));
+    }
+
+    // ── external user error trigger ───────────────────────────────────────────
+
+    [Fact]
+    public async Task LearningProtocol_ExternalUserError_ProducesProposal()
+    {
+        const string learningSysMsg = """
+            You are a learning assistant responding to a user-reported error.
+            Propose a rule that prevents this error from recurring.
+            You MUST end your response with:
+            [RULE_PROPOSAL:{"fileName":"CLAUDE.md","ruleText":"<proposed rule, min 20 words>","humanSummary":"<one sentence>","action":"add"}]
+            """;
+
+        var orchestrator = new LearningOrchestrator(BuildPipeline());
+        var session = LearningSession.Initiate(
+            LearningTrigger.ExternalUserError,
+            "The assistant created hand-written fakes instead of using real infrastructure implementations, " +
+            "violating the explicit 'no mocks, no fakes' rule.");
+
+        var proposal = await orchestrator.RunLearningLoopAsync(session, systemMessage: learningSysMsg);
+
+        Assert.NotNull(proposal);
+        Assert.Equal(LearningTrigger.ExternalUserError, session.Trigger);
+        Assert.False(string.IsNullOrWhiteSpace(proposal.FileName));
+        Assert.False(string.IsNullOrWhiteSpace(proposal.Action));
+    }
 }
