@@ -1,24 +1,23 @@
 using AgentApp.Application.Findings;
 using AgentApp.Domain.Findings;
-using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Rules;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Findings;
 
-public class FindingsExtractionServiceTests
+public class FindingsExtractionServiceTests : IDisposable
 {
-    private readonly IMdFileRepository _mdFileRepository;
+    private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly JsonMdFileRepository _mdFileRepository;
     private readonly FindingsExtractionService _sut;
 
     public FindingsExtractionServiceTests()
     {
-        _mdFileRepository = Substitute.For<IMdFileRepository>();
+        _mdFileRepository = new JsonMdFileRepository(_tempFolder);
         _sut = new FindingsExtractionService(_mdFileRepository);
-
-        _mdFileRepository.GetByNameAsync(Arg.Any<string>(), Arg.Any<MdFileScope>(), Arg.Any<Guid?>())
-            .Returns((MdFile?)null);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public void IsMeaningful_NonEmptyFindingsWithSubstantialContent_ReturnsTrue()
@@ -27,7 +26,6 @@ public class FindingsExtractionServiceTests
         {
             TechnicalFinding.Create("dotnet", "Always use async/await over .Result to avoid deadlocks.")
         };
-
         Assert.True(_sut.IsMeaningful(findings));
     }
 
@@ -40,24 +38,21 @@ public class FindingsExtractionServiceTests
     [Fact]
     public void IsMeaningful_AllFindingsBelowMinLength_ReturnsFalse()
     {
-        var findings = new List<TechnicalFinding>
-        {
-            TechnicalFinding.Create("dotnet", "Short but valid finding text here!!")
-        };
-        // Content below 40 chars threshold → not meaningful
         var shortFindings = new List<TechnicalFinding>
         {
             TechnicalFinding.Create("dotnet", "Too short finding text here!")
         };
-
         Assert.False(_sut.IsMeaningful(shortFindings));
     }
 
     [Fact]
     public void IsImplementationConclusion_ResponseWithBlock_ReturnsTrue()
     {
-        var response = "Great work!\n```implementation-conclusion\n{\"status\": \"complete\"}\n```\nDone.";
-
+        var response = @"Great work!
+```implementation-conclusion
+{""status"": ""complete""}
+```
+Done.";
         Assert.True(_sut.IsImplementationConclusion(response));
     }
 
@@ -65,7 +60,6 @@ public class FindingsExtractionServiceTests
     public void IsImplementationConclusion_ResponseWithoutBlock_ReturnsFalse()
     {
         var response = "The implementation is progressing well.";
-
         Assert.False(_sut.IsImplementationConclusion(response));
     }
 
@@ -76,11 +70,10 @@ public class FindingsExtractionServiceTests
         {
             TechnicalFinding.Create("dotnet", "Always use async/await over .Result to avoid deadlocks.")
         };
-
         await _sut.WriteToTechnologyFilesAsync(findings);
-
-        await _mdFileRepository.Received(1).SaveAsync(Arg.Is<MdFile>(f =>
-            f.Name == "technology-dotnet" && f.IsTechnology));
+        var saved = await _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null);
+        Assert.NotNull(saved);
+        Assert.True(saved.IsTechnology);
     }
 
     [Fact]
@@ -88,34 +81,30 @@ public class FindingsExtractionServiceTests
     {
         var content = "Always use async/await over .Result to avoid deadlocks.";
         var existingFile = MdFile.CreateTechnology("technology-dotnet", content);
-        _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null)
-            .Returns(existingFile);
-
+        await _mdFileRepository.SaveAsync(existingFile);
         var findings = new List<TechnicalFinding>
         {
             TechnicalFinding.Create("dotnet", content)
         };
-
         await _sut.WriteToTechnologyFilesAsync(findings);
-
-        await _mdFileRepository.DidNotReceive().SaveAsync(Arg.Any<MdFile>());
+        var saved = await _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null);
+        Assert.Equal(existingFile.Id, saved!.Id);
     }
 
     [Fact]
     public async Task WriteToTechnologyFilesAsync_ExistingFileNonDuplicate_AppendsContent()
     {
-        var existingFile = MdFile.CreateTechnology("technology-dotnet", "## Existing finding\nContent here.");
-        _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null)
-            .Returns(existingFile);
-
+        var existingFile = MdFile.CreateTechnology("technology-dotnet", @"## Existing finding
+Content here.");
+        await _mdFileRepository.SaveAsync(existingFile);
         var findings = new List<TechnicalFinding>
         {
             TechnicalFinding.Create("dotnet", "Always use async/await over .Result to avoid deadlocks.")
         };
-
         await _sut.WriteToTechnologyFilesAsync(findings);
-
-        await _mdFileRepository.Received(1).SaveAsync(Arg.Is<MdFile>(f =>
-            f.Content.Contains("Existing finding") && f.Content.Contains("async/await")));
+        var saved = await _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null);
+        Assert.NotNull(saved);
+        Assert.Contains("Existing finding", saved.Content);
+        Assert.Contains("async/await", saved.Content);
     }
 }

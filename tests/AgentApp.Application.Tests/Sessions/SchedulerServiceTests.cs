@@ -1,27 +1,29 @@
 using AgentApp.Application.Scheduling;
-using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Scheduling;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Sessions;
 
-public class SchedulerServiceTests
+public class SchedulerServiceTests : IDisposable
 {
-    private readonly IScheduleRepository _repository;
+    private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly JsonScheduleRepository _repository;
     private readonly SchedulerService _sut;
 
     public SchedulerServiceTests()
     {
-        _repository = Substitute.For<IScheduleRepository>();
+        _repository = new JsonScheduleRepository(_tempFolder);
         _sut = new SchedulerService(_repository);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task IsDueAsync_EnabledAndOverdue_ReturnsTrue()
     {
         var schedule = ScheduleDefinition.Create(ScheduledJobType.ReviewAgent, TimeSpan.FromHours(24), true);
         schedule.UpdateLastRun(DateTimeOffset.UtcNow.AddHours(-25));
-        _repository.GetByJobTypeAsync(ScheduledJobType.ReviewAgent).Returns(schedule);
+        await _repository.SaveAsync(schedule);
 
         var result = await _sut.IsDueAsync(ScheduledJobType.ReviewAgent);
 
@@ -33,7 +35,7 @@ public class SchedulerServiceTests
     {
         var schedule = ScheduleDefinition.Create(ScheduledJobType.ReviewAgent, TimeSpan.FromHours(24), true);
         schedule.UpdateLastRun(DateTimeOffset.UtcNow.AddHours(-6));
-        _repository.GetByJobTypeAsync(ScheduledJobType.ReviewAgent).Returns(schedule);
+        await _repository.SaveAsync(schedule);
 
         var result = await _sut.IsDueAsync(ScheduledJobType.ReviewAgent);
 
@@ -45,7 +47,7 @@ public class SchedulerServiceTests
     {
         var schedule = ScheduleDefinition.Create(ScheduledJobType.ReviewAgent, TimeSpan.FromHours(24), false);
         schedule.UpdateLastRun(DateTimeOffset.UtcNow.AddHours(-48));
-        _repository.GetByJobTypeAsync(ScheduledJobType.ReviewAgent).Returns(schedule);
+        await _repository.SaveAsync(schedule);
 
         var result = await _sut.IsDueAsync(ScheduledJobType.ReviewAgent);
 
@@ -56,7 +58,7 @@ public class SchedulerServiceTests
     public async Task IsDueAsync_NeverRun_ReturnsTrueWhenEnabled()
     {
         var schedule = ScheduleDefinition.Create(ScheduledJobType.ReviewAgent, TimeSpan.FromHours(24), true);
-        _repository.GetByJobTypeAsync(ScheduledJobType.ReviewAgent).Returns(schedule);
+        await _repository.SaveAsync(schedule);
 
         var result = await _sut.IsDueAsync(ScheduledJobType.ReviewAgent);
 
@@ -67,23 +69,20 @@ public class SchedulerServiceTests
     public async Task RecordRunAsync_UpdatesLastRunAndSaves()
     {
         var schedule = ScheduleDefinition.Create(ScheduledJobType.ReviewAgent, TimeSpan.FromHours(24), true);
-        _repository.GetByJobTypeAsync(ScheduledJobType.ReviewAgent).Returns(schedule);
+        await _repository.SaveAsync(schedule);
 
         await _sut.RecordRunAsync(ScheduledJobType.ReviewAgent);
 
-        await _repository.Received(1).SaveAsync(Arg.Is<ScheduleDefinition>(s =>
-            s.JobType == ScheduledJobType.ReviewAgent && s.LastRunAt.HasValue));
+        var saved = await _repository.GetByJobTypeAsync(ScheduledJobType.ReviewAgent);
+        Assert.NotNull(saved);
+        Assert.True(saved.LastRunAt.HasValue);
     }
 
     [Fact]
     public async Task GetAllStatusesAsync_ReturnsStatusForAllDefinitions()
     {
-        var schedules = new List<ScheduleDefinition>
-        {
-            ScheduleDefinition.Create(ScheduledJobType.ReviewAgent, TimeSpan.FromHours(24), true),
-            ScheduleDefinition.Create(ScheduledJobType.RollingWindowArchive, TimeSpan.FromHours(6), false)
-        };
-        _repository.GetAllAsync().Returns(schedules);
+        await _repository.SaveAsync(ScheduleDefinition.Create(ScheduledJobType.ReviewAgent, TimeSpan.FromHours(24), true));
+        await _repository.SaveAsync(ScheduleDefinition.Create(ScheduledJobType.RollingWindowArchive, TimeSpan.FromHours(6), false));
 
         var result = await _sut.GetAllStatusesAsync();
 

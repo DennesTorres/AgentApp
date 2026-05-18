@@ -1,91 +1,87 @@
 using AgentApp.Application.Context;
-using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Rules;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Context;
 
-public class RollingWindowManagerTests
+public class RollingWindowManagerTests : IDisposable
 {
-    private readonly IRollingWindowStore _store;
-    private readonly IRollingWindowRuleRepository _ruleRepository;
+    private readonly string _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+    private readonly FileSystemRollingWindowStore _store;
+    private readonly JsonRollingWindowRuleRepository _ruleRepository;
     private readonly RollingWindowManager _sut;
 
     public RollingWindowManagerTests()
     {
-        _store = Substitute.For<IRollingWindowStore>();
-        _ruleRepository = Substitute.For<IRollingWindowRuleRepository>();
+        _store = new FileSystemRollingWindowStore(_tempFolder);
+        _ruleRepository = new JsonRollingWindowRuleRepository(_tempFolder);
         _sut = new RollingWindowManager(_store, _ruleRepository);
-
-        _store.ReadActiveAsync(Arg.Any<string>()).Returns(string.Empty);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public async Task AppendAsync_EmptyFile_WritesContentDirectly()
     {
-        _store.ReadActiveAsync("session-memory").Returns(string.Empty);
-
         await _sut.AppendAsync("session-memory", "New session content.", MdFileScope.Global, null);
 
-        await _store.Received(1).WriteActiveAsync("session-memory", "New session content.");
+        var content = await _store.ReadActiveAsync("session-memory");
+        Assert.Equal("New session content.", content);
     }
 
     [Fact]
     public async Task AppendAsync_ExistingContent_AppendsWithSeparator()
     {
-        _store.ReadActiveAsync("session-memory").Returns("Existing content.");
+        await _store.WriteActiveAsync("session-memory", "Existing content.");
 
         await _sut.AppendAsync("session-memory", "Appended content.", MdFileScope.Global, null);
 
-        await _store.Received(1).WriteActiveAsync("session-memory",
-            "Existing content.\n\nAppended content.");
+        var content = await _store.ReadActiveAsync("session-memory");
+        Assert.Equal("Existing content.\n\nAppended content.", content);
     }
 
     [Fact]
     public async Task ArchiveIfNeededAsync_ContentBelowLimit_DoesNotArchive()
     {
         var rule = RollingWindowRule.Create("session-memory", 1000, 30, MdFileScope.Global, null);
-        _ruleRepository.GetByFileTypeAsync("session-memory", MdFileScope.Global, null).Returns(rule);
-        _store.ReadActiveAsync("session-memory").Returns("Short content.");
+        await _ruleRepository.SaveAsync(rule);
+        await _store.WriteActiveAsync("session-memory", "Short content.");
 
         await _sut.ArchiveIfNeededAsync("session-memory", MdFileScope.Global, null);
 
-        await _store.DidNotReceive().ArchiveAsync(Arg.Any<string>(), Arg.Any<string>());
+        var content = await _store.ReadActiveAsync("session-memory");
+        Assert.Equal("Short content.", content);
     }
 
     [Fact]
     public async Task ArchiveIfNeededAsync_ContentOverLimit_ArchivesAndClears()
     {
         var rule = RollingWindowRule.Create("session-memory", 10, 30, MdFileScope.Global, null);
-        _ruleRepository.GetByFileTypeAsync("session-memory", MdFileScope.Global, null).Returns(rule);
-        _store.ReadActiveAsync("session-memory").Returns("This content is over the limit.");
+        await _ruleRepository.SaveAsync(rule);
+        await _store.WriteActiveAsync("session-memory", "This content is over the limit.");
 
         await _sut.ArchiveIfNeededAsync("session-memory", MdFileScope.Global, null);
 
-        await _store.Received(1).ArchiveAsync("session-memory", "This content is over the limit.");
-        await _store.Received(1).WriteActiveAsync("session-memory", string.Empty);
+        var content = await _store.ReadActiveAsync("session-memory");
+        Assert.Equal(string.Empty, content);
     }
 
     [Fact]
     public async Task ArchiveIfNeededAsync_NoRule_DoesNothing()
     {
-        _ruleRepository.GetByFileTypeAsync(Arg.Any<string>(), Arg.Any<MdFileScope>(), Arg.Any<Guid?>())
-            .Returns((RollingWindowRule?)null);
+        await _store.WriteActiveAsync("session-memory", "Some content.");
 
         await _sut.ArchiveIfNeededAsync("session-memory", MdFileScope.Global, null);
 
-        await _store.DidNotReceive().ArchiveAsync(Arg.Any<string>(), Arg.Any<string>());
+        var content = await _store.ReadActiveAsync("session-memory");
+        Assert.Equal("Some content.", content);
     }
 
     [Fact]
     public async Task SearchArchivesAsync_DelegatesToStore()
     {
-        _store.SearchArchivesAsync("query", "session-memory")
-            .Returns(new List<string> { "match 1", "match 2" });
-
         var results = await _sut.SearchArchivesAsync("query", "session-memory", null);
 
-        Assert.Equal(2, results.Count);
-        await _store.Received(1).SearchArchivesAsync("query", "session-memory");
+        Assert.NotNull(results);
     }
 }

@@ -1,18 +1,16 @@
 using AgentApp.Application.Sessions;
-using AgentApp.Domain.Interfaces;
+using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Sessions;
-using NSubstitute;
 
 namespace AgentApp.Application.Tests.Sessions;
 
 public class SessionServiceTests
 {
-    private readonly ISessionRepository _repository;
+    private readonly InMemorySessionRepository _repository = new();
     private readonly SessionService _sut;
 
     public SessionServiceTests()
     {
-        _repository = Substitute.For<ISessionRepository>();
         _sut = new SessionService(_repository);
     }
 
@@ -23,28 +21,29 @@ public class SessionServiceTests
 
         Assert.NotNull(session);
         Assert.False(session.IsLinkedToProject);
-        await _repository.Received(1).SaveAsync(Arg.Is<ChatSession>(s => s.Id == session.Id));
+        var saved = await _repository.GetByIdAsync(session.Id);
+        Assert.NotNull(saved);
+        Assert.Equal(session.Id, saved.Id);
     }
 
     [Fact]
     public async Task LinkSessionToProjectAsync_StandaloneSession_LinksAndSaves()
     {
         var session = ChatSession.CreateStandalone();
+        await _repository.SaveAsync(session);
         var projectId = Guid.NewGuid();
-        _repository.GetByIdAsync(session.Id).Returns(session);
 
         await _sut.LinkSessionToProjectAsync(session.Id, projectId);
 
-        Assert.True(session.IsLinkedToProject);
-        Assert.Equal(projectId, session.ProjectId);
-        await _repository.Received(1).SaveAsync(session);
+        var saved = await _repository.GetByIdAsync(session.Id);
+        Assert.NotNull(saved);
+        Assert.True(saved.IsLinkedToProject);
+        Assert.Equal(projectId, saved.ProjectId);
     }
 
     [Fact]
     public async Task LinkSessionToProjectAsync_SessionNotFound_Throws()
     {
-        _repository.GetByIdAsync(Arg.Any<Guid>()).Returns((ChatSession?)null);
-
         await Assert.ThrowsAsync<AgentApp.Domain.Exceptions.DomainNotFoundException>(
             () => _sut.LinkSessionToProjectAsync(Guid.NewGuid(), Guid.NewGuid()));
     }
