@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using AgentApp.Application.Providers;
+using AgentApp.Domain.Chat;
 using AgentApp.Domain.Learning;
 using AgentApp.Domain.Providers;
 
@@ -18,16 +19,18 @@ public class LearningOrchestrator
     public async Task<ProposedRuleChange?> RunLearningLoopAsync(
         LearningSession session,
         string? reasoningTraceContent = null,
+        string? systemMessage = null,
         CancellationToken cancellationToken = default)
     {
-        var payload = new Dictionary<string, object>
-        {
-            ["violation"] = session.ViolationDescription,
-            ["trigger"] = session.Trigger.ToString()
-        };
-
+        var userContent = $"Trigger: {session.Trigger}\nViolation: {session.ViolationDescription}";
         if (!string.IsNullOrEmpty(reasoningTraceContent))
-            payload["reasoningTrace"] = reasoningTraceContent;
+            userContent += $"\nReasoning trace:\n{reasoningTraceContent}";
+
+        var history = new List<ChatTurn> { new(ChatTurnRole.User, userContent, DateTimeOffset.UtcNow) };
+        var payload = new Dictionary<string, object> { ["history"] = history };
+
+        if (!string.IsNullOrEmpty(systemMessage))
+            payload["systemMessage"] = systemMessage;
 
         var request = ProviderRequest.Create(ProviderCapability.ModelCall, payload);
         var response = await _pipeline.SendAsync(request, cancellationToken);

@@ -26,6 +26,10 @@ public class AzureChatClientProvider : IProvider
             t.Role == ChatTurnRole.User ? ChatRole.User : ChatRole.Assistant,
             t.Content)).ToList();
 
+        if (request.Payload.TryGetValue("systemMessage", out var sysObj) &&
+            sysObj is string systemMessage && !string.IsNullOrEmpty(systemMessage))
+            messages.Insert(0, new ChatMessage(ChatRole.System, systemMessage));
+
         try
         {
             var response = await _chatClient.GetResponseAsync(messages,
