@@ -13,3 +13,5 @@ public record WriteFileCommand(string Path, string Content) : ChatCommand;
 public record ListDirectoryCommand(string Path) : ChatCommand;
 
 public record PathPermissionRequestCommand(string Path, string Reason) : ChatCommand;
+
+public record StateTransitionCommand(string Mode) : ChatCommand;

@@ -10,7 +10,7 @@ public class ChatCommandParser : IChatCommandParser
     // Commands whose JSON payload may contain nested braces (e.g. file content with code)
     // are extracted with brace-depth tracking; others use simple regex.
     private static readonly Regex SimpleCommandPattern =
-        new(@"\[(?<cmd>FOLDER_SELECT|PROJECT_CONFIRM|READ_FILE|LIST_DIR|PATH_PERMISSION_REQUEST):(?<json>\{[^}]*\})\]",
+        new(@"\[(?<cmd>FOLDER_SELECT|PROJECT_CONFIRM|READ_FILE|LIST_DIR|PATH_PERMISSION_REQUEST|STATE_TRANSITION):(?<json>\{[^}]*\})\]",
             RegexOptions.Compiled);
 
     public (string CleanText, IReadOnlyList<ChatCommand> Commands) Parse(string text)
@@ -124,6 +124,8 @@ public class ChatCommandParser : IChatCommandParser
                 ? new ListDirectoryCommand(p.path ?? string.Empty) : null,
             "PATH_PERMISSION_REQUEST" => JsonSerializer.Deserialize<PathPermissionPayload>(json) is { } p
                 ? new PathPermissionRequestCommand(p.path ?? string.Empty, p.reason ?? string.Empty) : null,
+            "STATE_TRANSITION" => JsonSerializer.Deserialize<StateTransitionPayload>(json) is { } p
+                ? new StateTransitionCommand(p.mode ?? string.Empty) : null,
             _ => null
         };
 
@@ -133,4 +135,5 @@ public class ChatCommandParser : IChatCommandParser
     private record WriteFilePayload(string? path, string? content);
     private record ListDirPayload(string? path);
     private record PathPermissionPayload(string? path, string? reason);
+    private record StateTransitionPayload(string? mode);
 }

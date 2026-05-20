@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Epics 15–17 — Runtime Architecture</title>
+<style>
+  body { background: #1e1e1e; color: #d4d4d4; font-family: "Cascadia Code", "Consolas", monospace; padding: 24px; }
+  pre { line-height: 1.5; font-size: 13px; }
+  .layer-ui       { color: #9cdcfe; }
+  .layer-app      { color: #dcdcaa; }
+  .layer-domain   { color: #4ec9b0; }
+  .layer-infra    { color: #ce9178; }
+  .layer-external { color: #808080; }
+  .label          { color: #c586c0; font-weight: bold; }
+  .arrow          { color: #569cd6; }
+  .note           { color: #6a9955; font-style: italic; }
+  h2 { color: #d4d4d4; font-size: 14px; margin-top: 0; }
+  .legend { margin-top: 16px; font-size: 12px; }
+  .legend span { margin-right: 24px; }
+</style>
+</head>
+<body>
+<h2>Epics 15–17 — Runtime Message Flow</h2>
+<pre>
+<span class="note">  Per-message workflow in ChatService.SendAsync (5 steps)</span>
+<span class="note">  ─────────────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="label">  USER</span>
+    │
+    │ types message
+    ▼
+<span class="layer-ui">  ┌──────────────────────────────────────────────────────────────────────────────────────────┐</span>
+<span class="layer-ui">  │  ChatViewModel  (UI layer)                                                               │</span>
+<span class="layer-ui">  │  ─────────────────────────────────────────────────────────────────────────────────────── │</span>
+<span class="layer-ui">  │  SendMessageAsync()                                                                      │</span>
+<span class="layer-ui">  │    • appends user bubble to Messages list                                                │</span>
+<span class="layer-ui">  │    • calls ChatService.SendAsync(text)                                                   │</span>
+<span class="layer-ui">  │    • dispatches visible commands (ReadFile, WriteFile, FolderSelect…)                   │</span>
+<span class="layer-ui">  │    • appends assistant bubble to Messages list                                           │</span>
+<span class="layer-ui">  │                                                                                          │</span>
+<span class="layer-ui">  │  ConfirmProjectAsync() / InitializeAsync()                                               │</span>
+<span class="layer-ui">  │    • calls IAgentContextService.SetProject(project, agentPath, codePath)                │</span>
+<span class="layer-ui">  └──────────────────────────────────────────────────────────────────────────────────────────┘</span>
+    │
+    │ SendAsync(userMessage)
+    ▼
+<span class="layer-app">  ┌──────────────────────────────────────────────────────────────────────────────────────────┐</span>
+<span class="layer-app">  │  ChatService  (Application layer)                                                        │</span>
+<span class="layer-app">  │  ─────────────────────────────────────────────────────────────────────────────────────── │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 1 ── Assemble system message                                                       │</span>
+<span class="layer-app">  │    context = IAgentContextService.GetCurrent()                 ◄─── reads AgentContext   │</span>
+<span class="layer-app">  │    systemMessage = providers                                                             │</span>
+<span class="layer-app">  │                      .Where(p ⇒ p.IsApplicable(context))                                 │</span>
+<span class="layer-app">  │                      .Select(p ⇒ p.GetSection(context))                                  │</span>
+<span class="layer-app">  │                      .Join("\n\n")                                                       │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 2 ── Model call                                                                    │</span>
+<span class="layer-app">  │    payload = { history: [...], systemMessage: "..." }                                    │</span>
+<span class="layer-app">  │    response = OrchestratorPipeline.SendAsync(ModelCall, payload)                         │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 3 ── Parse commands                                                                │</span>
+<span class="layer-app">  │    (displayText, commands) = ChatCommandParser.Parse(rawText)                            │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 4 ── Detect STATE_TRANSITION  (internal — never returned to VM)                   │</span>
+<span class="layer-app">  │    if StateTransitionCommand found:                                                      │</span>
+<span class="layer-app">  │      IAgentContextService.UpdateConversationState(mode)         ─────► updates context   │</span>
+<span class="layer-app">  │    filter StateTransitionCommand out of result                                           │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 5 ── Return to ViewModel                                                           │</span>
+<span class="layer-app">  │    return ChatServiceResult(displayText, visibleCommands)                                │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  └──────────────────────────────────────────────────────────────────────────────────────────┘</span>
+    │                                  │
+    │ Step 1: reads                    │ Step 2: routes ModelCall
+    ▼                                  ▼
+<span class="layer-app">  ┌───────────────────────────────┐  ┌──────────────────────────────────────────────────────┐</span>
+<span class="layer-app">  │  IAgentContextService         │  │  OrchestratorPipeline                                │</span>
+<span class="layer-app">  │  (AgentContextService)        │  │  ────────────────────────────────────────────────── │</span>
+<span class="layer-app">  │  ─────────────────────────── │  │  Routes by ProviderCapability:                       │</span>
+<span class="layer-app">  │  holds: AgentContext          │  │    ModelCall  → AzureChatClientProvider              │</span>
+<span class="layer-app">  │  GetCurrent()                 │  │    FileRead   → FileReadProvider                     │</span>
+<span class="layer-app">  │  SetProject(...)              │  │    FileWrite  → FileWriteProvider                    │</span>
+<span class="layer-app">  │  UpdateConversationState(...) │  │    DirList    → DirectoryListProvider                │</span>
+<span class="layer-app">  └───────────────────────────────┘  └──────────────────────────────────────────────────────┘</span>
+    │                                            │
+    │                                            │
+    ▼                                            ▼
+<span class="layer-domain">  ┌───────────────────────────────┐  ┌──────────────────────────────────────────────────────┐</span>
+<span class="layer-domain">  │  AgentContext  (Domain)        │  │  AzureChatClientProvider  (Infrastructure)           │</span>
+<span class="layer-domain">  │  ─────────────────────────── │  │  ────────────────────────────────────────────────── │</span>
+<span class="layer-domain">  │  CurrentProject?              │  │  reads payload["systemMessage"]                      │</span>
+<span class="layer-domain">  │  ConversationState            │  │  prepends as ChatRole.System message                 │</span>
+<span class="layer-domain">  │  AgentFolderPath              │  │  appends history turns as User/Assistant             │</span>
+<span class="layer-domain">  │  CodeFolderPath               │  │  calls IChatClient.GetResponseAsync(messages)        │</span>
+<span class="layer-domain">  │  HasProject                   │  │  returns response.Text in result["text"]             │</span>
+<span class="layer-domain">  └───────────────────────────────┘  └──────────────────────────────────────────────────────┘</span>
+    │                                            │
+    │ providers read context (Step 1)            │ IChatClient
+    ▼                                            ▼
+<span class="layer-app">  ┌──────────────────────────────────────────────┐  ┌───────────────────────────────────────┐</span>
+<span class="layer-app">  │  ISystemMessageProvider[] (Application)       │  │  Azure AI Foundry  (external)         │</span>
+<span class="layer-app">  │  ─────────────────────────────────────────── │  │  ──────────────────────────────────── │</span>
+<span class="layer-app">  │  NoProjectProvider                            │  │  endpoint: msdnfoundry…               │</span>
+<span class="layer-app">  │    IsApplicable: !HasProject                  │  │  model: Kimi-K2.5                     │</span>
+<span class="layer-app">  │    GetSection: "You are Tower…"              │  │                                       │</span>
+<span class="layer-app">  │                                               │  └───────────────────────────────────────┘</span>
+<span class="layer-app">  │  ActiveProjectProvider                        │</span>
+<span class="layer-app">  │    IsApplicable: HasProject                   │</span>
+<span class="layer-app">  │    GetSection: project name + paths           │</span>
+<span class="layer-app">  │                                               │</span>
+<span class="layer-app">  │  ExecutionStateProvider                       │</span>
+<span class="layer-app">  │    IsApplicable: HasProject                   │</span>
+<span class="layer-app">  │    GetSection: ConversationState.Mode         │</span>
+<span class="layer-app">  └──────────────────────────────────────────────┘</span>
+
+
+<span class="note">  STATE_TRANSITION loop (Step 4):
+  ──────────────────────────────────────────────────────────────────────────────────────────
+  Model response may contain: "... [STATE_TRANSITION:{"mode":"implementing"}] ..."
+    → ChatCommandParser extracts StateTransitionCommand("implementing")
+    → ChatService detects it, calls IAgentContextService.UpdateConversationState
+    → AgentContext.ConversationState updated to ConversationState.FromMode("implementing")
+    → StateTransitionCommand filtered out — NOT returned to ChatViewModel
+    → Next message: ExecutionStateProvider.GetSection() returns "implementing"
+  ──────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre>
+<div class="legend">
+  <span class="layer-ui">■ UI layer</span>
+  <span class="layer-app">■ Application layer</span>
+  <span class="layer-domain">■ Domain layer</span>
+  <span class="layer-infra">■ Infrastructure layer</span>
+  <span class="layer-external">■ External</span>
+</div>
+</body>
+</html>

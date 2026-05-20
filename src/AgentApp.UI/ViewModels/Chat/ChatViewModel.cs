@@ -21,6 +21,7 @@ public partial class ChatViewModel : ObservableObject
     private readonly ISettingsRepository _settingsRepository;
     private readonly OrchestratorPipeline _pipeline;
     private readonly IFilePermissionGate _fileGate;
+    private readonly IAgentContextService _contextService;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendMessageCommand))]
@@ -60,7 +61,8 @@ public partial class ChatViewModel : ObservableObject
         IScaffoldService scaffoldService,
         ISettingsRepository settingsRepository,
         OrchestratorPipeline pipeline,
-        IFilePermissionGate fileGate)
+        IFilePermissionGate fileGate,
+        IAgentContextService contextService)
     {
         _chatService = chatService;
         _onboardingService = onboardingService;
@@ -69,6 +71,7 @@ public partial class ChatViewModel : ObservableObject
         _settingsRepository = settingsRepository;
         _pipeline = pipeline;
         _fileGate = fileGate;
+        _contextService = contextService;
 
         _ = InitializeAsync();
     }
@@ -85,10 +88,10 @@ public partial class ChatViewModel : ObservableObject
             var recent = projects.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
             if (recent is not null)
             {
+                var agentFolder = _scaffoldService.GetAgentFolderPath(recent.Name);
                 ActiveProjectName = recent.Name;
-                _fileGate.SetProjectRoots(
-                    _scaffoldService.GetAgentFolderPath(recent.Name),
-                    recent.ProjectFolderPath);
+                _fileGate.SetProjectRoots(agentFolder, recent.ProjectFolderPath);
+                _contextService.SetProject(recent, agentFolder, recent.ProjectFolderPath);
             }
         }
     }
@@ -134,10 +137,10 @@ public partial class ChatViewModel : ObservableObject
 
         await _scaffoldService.CreateScaffoldAsync(_pendingProjectConfirm.ProjectName, settings.SourceControlRoot);
 
+        var agentFolder = _scaffoldService.GetAgentFolderPath(project.Name);
         ActiveProjectName = project.Name;
-        _fileGate.SetProjectRoots(
-            _scaffoldService.GetAgentFolderPath(project.Name),
-            codeFolder);
+        _fileGate.SetProjectRoots(agentFolder, codeFolder);
+        _contextService.SetProject(project, agentFolder, codeFolder);
 
         _pendingProjectConfirm = null;
         AddAgentMessage($"Project \"{project.Name}\" created! Your agent folder and code folder are ready.");

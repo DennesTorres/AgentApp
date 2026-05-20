@@ -1,11 +1,13 @@
 using System.IO;
 using System.Windows;
+using AgentApp.Application.Agent;
 using AgentApp.Application.Chat;
 using AgentApp.Application.FileSystem;
 using AgentApp.Application.Onboarding;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
 using AgentApp.Application.Sessions;
+using AgentApp.Application.SystemMessage;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Providers;
 using AgentApp.Infrastructure.Credentials;
@@ -68,6 +70,12 @@ public partial class App : System.Windows.Application
         services.AddSingleton<OrchestratorPipeline>();
         services.AddSingleton<IChatCommandParser, ChatCommandParser>();
 
+        // Agent context + system message providers
+        services.AddSingleton<IAgentContextService, AgentContextService>();
+        services.AddSingleton<ISystemMessageProvider, NoProjectProvider>();
+        services.AddSingleton<ISystemMessageProvider, ActiveProjectProvider>();
+        services.AddSingleton<ISystemMessageProvider, ExecutionStateProvider>();
+
         // Application
         services.AddSingleton<SessionService>();
         services.AddSingleton<ProjectService>();
@@ -75,7 +83,11 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IOnboardingService>(sp => new OnboardingService(
             sp.GetRequiredService<IProjectRepository>(),
             sp.GetRequiredService<ISettingsRepository>()));
-        services.AddSingleton<ChatService>();
+        services.AddSingleton<ChatService>(sp => new ChatService(
+            sp.GetRequiredService<OrchestratorPipeline>(),
+            sp.GetRequiredService<IChatCommandParser>(),
+            sp.GetServices<ISystemMessageProvider>().ToArray(),
+            sp.GetRequiredService<IAgentContextService>()));
 
         // UI
         services.AddSingleton<ChatViewModel>();

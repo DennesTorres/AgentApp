@@ -1,3 +1,4 @@
+using AgentApp.Application.Agent;
 using AgentApp.Application.Chat;
 using AgentApp.Application.Onboarding;
 using AgentApp.Application.Providers;
@@ -16,7 +17,7 @@ public class ChatServiceTests
         var registry = new ProviderRegistry();
         registry.Register(provider);
         var pipeline = new OrchestratorPipeline(registry);
-        return new ChatService(pipeline, new ChatCommandParser());
+        return new ChatService(pipeline, new ChatCommandParser(), [], new AgentContextService());
     }
 
     [Fact]
