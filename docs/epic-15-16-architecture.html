@@ -2,578 +2,135 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Epics 15–17 — Architecture Diagram</title>
+<title>Epics 15–17 — Runtime Architecture</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', sans-serif; background: #0f0f17; color: #e0e0f0; padding: 24px; }
-
-  h1 { font-size: 20px; font-weight: 600; color: #a0c4ff; margin-bottom: 6px; }
-  .subtitle { font-size: 12px; color: #666; margin-bottom: 28px; }
-
-  /* ── Layer grid ── */
-  .layers {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-    margin-bottom: 32px;
-  }
-
-  .layer {
-    border-radius: 10px;
-    padding: 14px 12px;
-    min-height: 540px;
-  }
-  .layer-ui   { background: #1a1a2e; border: 1px solid #3a3a6e; }
-  .layer-app  { background: #1a2a1a; border: 1px solid #3a6e3a; }
-  .layer-dom  { background: #2a1a1a; border: 1px solid #6e3a3a; }
-  .layer-inf  { background: #1a2a2a; border: 1px solid #3a6e6e; }
-
-  .layer-title {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    margin-bottom: 12px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-  }
-  .layer-ui   .layer-title { color: #7090ff; }
-  .layer-app  .layer-title { color: #70d070; }
-  .layer-dom  .layer-title { color: #d07070; }
-  .layer-inf  .layer-title { color: #70d0d0; }
-
-  /* ── Component boxes ── */
-  .comp {
-    border-radius: 6px;
-    padding: 7px 10px;
-    margin-bottom: 8px;
-    font-size: 12px;
-    line-height: 1.4;
-  }
-  .comp-name   { font-weight: 600; margin-bottom: 2px; }
-  .comp-detail { font-size: 10px; color: #999; }
-  .comp-us     { font-size: 9px; color: #666; font-style: italic; margin-top: 2px; }
-
-  .c-ui  { background: #252545; border-left: 3px solid #5060cc; }
-  .c-app { background: #253525; border-left: 3px solid #508050; }
-  .c-dom { background: #352525; border-left: 3px solid #805050; }
-  .c-inf { background: #253535; border-left: 3px solid #508080; }
-  .c-new { border-left-color: #c0a030 !important; }
-
-  .tag {
-    display: inline-block;
-    font-size: 9px;
-    padding: 1px 5px;
-    border-radius: 3px;
-    margin-right: 4px;
-    margin-top: 3px;
-    font-weight: 600;
-  }
-  .tag-17   { background: #2a2010; color: #d0a040; border: 1px solid #806030; }
-  .tag-16   { background: #10202a; color: #40a0d0; border: 1px solid #306080; }
-  .tag-15   { background: #1a1a3a; color: #8090d0; border: 1px solid #505080; }
-  .tag-base { background: #202020; color: #707070; border: 1px solid #404040; }
-
-  /* ── Flow diagram ── */
-  .flows-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #a0c4ff;
-    margin-bottom: 14px;
-  }
-
-  .flows-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-  }
-
-  .flow-card {
-    background: #141420;
-    border: 1px solid #2a2a40;
-    border-radius: 10px;
-    padding: 14px;
-  }
-  .flow-card-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: #c0a0ff;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 10px;
-  }
-
-  .flow-line {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 5px;
-  }
-  .arrow { color: #5a5a8a; flex-shrink: 0; }
-  .flow-node {
-    background: #1e1e38;
-    border: 1px solid #3a3a5a;
-    border-radius: 4px;
-    padding: 2px 7px;
-    font-size: 11px;
-    white-space: nowrap;
-  }
-  .flow-node.ui  { border-color: #4050a0; color: #8090d0; }
-  .flow-node.app { border-color: #408040; color: #70b070; }
-  .flow-node.inf { border-color: #408080; color: #70b0b0; }
-  .flow-node.dom { border-color: #804040; color: #b07070; }
-  .flow-node.ext { border-color: #806040; color: #b09060; }
-  .flow-node.cmd { border-color: #804080; color: #b070b0; font-style: italic; font-family: monospace; font-size: 10px; }
-  .flow-label {
-    font-size: 9px;
-    color: #666;
-    align-self: center;
-  }
-  .flow-step-num {
-    font-size: 9px;
-    font-weight: 700;
-    color: #c0a030;
-    min-width: 18px;
-    flex-shrink: 0;
-  }
-
-  /* ── Command protocol box ── */
-  .protocol {
-    margin-top: 28px;
-    background: #141420;
-    border: 1px solid #2a2a40;
-    border-radius: 10px;
-    padding: 16px;
-  }
-  .protocol-title {
-    font-size: 11px;
-    font-weight: 700;
-    color: #c0a0ff;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 12px;
-  }
-  .cmd-row {
-    display: flex;
-    align-items: baseline;
-    margin-bottom: 8px;
-    font-size: 11px;
-    gap: 10px;
-  }
-  .cmd-marker {
-    font-family: monospace;
-    background: #1e1e38;
-    border: 1px solid #3a3a5a;
-    border-radius: 4px;
-    padding: 2px 8px;
-    color: #b070b0;
-    white-space: nowrap;
-    font-size: 11px;
-    min-width: 340px;
-  }
-  .cmd-desc    { color: #888; font-size: 11px; flex: 1; }
-  .cmd-handler { color: #c0a030; font-size: 10px; margin-left: auto; white-space: nowrap; }
-
-  /* ── Legend ── */
-  .legend {
-    display: flex;
-    gap: 16px;
-    margin-top: 20px;
-    flex-wrap: wrap;
-  }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 10px;
-    color: #888;
-  }
-  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+  body { background: #1e1e1e; color: #d4d4d4; font-family: "Cascadia Code", "Consolas", monospace; padding: 24px; }
+  pre { line-height: 1.5; font-size: 13px; }
+  .layer-ui       { color: #9cdcfe; }
+  .layer-app      { color: #dcdcaa; }
+  .layer-domain   { color: #4ec9b0; }
+  .layer-infra    { color: #ce9178; }
+  .layer-external { color: #808080; }
+  .label          { color: #c586c0; font-weight: bold; }
+  .arrow          { color: #569cd6; }
+  .note           { color: #6a9955; font-style: italic; }
+  h2 { color: #d4d4d4; font-size: 14px; margin-top: 0; }
+  .legend { margin-top: 16px; font-size: 12px; }
+  .legend span { margin-right: 24px; }
 </style>
 </head>
 <body>
+<h2>Epics 15–17 — Runtime Message Flow</h2>
+<pre>
+<span class="note">  Per-message workflow in ChatService.SendAsync (5 steps)</span>
+<span class="note">  ─────────────────────────────────────────────────────────────────────────────────────────────</span>
 
-<h1>Epics 15–17 — Model Connectivity, File Management, AgentContext</h1>
-<p class="subtitle">US-151–163 + US-135b &nbsp;·&nbsp; Branches: epic-15, epic-16, epic-17 &nbsp;·&nbsp; 344 tests passing</p>
+<span class="label">  USER</span>
+    │
+    │ types message
+    ▼
+<span class="layer-ui">  ┌──────────────────────────────────────────────────────────────────────────────────────────┐</span>
+<span class="layer-ui">  │  ChatViewModel  (UI layer)                                                               │</span>
+<span class="layer-ui">  │  ─────────────────────────────────────────────────────────────────────────────────────── │</span>
+<span class="layer-ui">  │  SendMessageAsync()                                                                      │</span>
+<span class="layer-ui">  │    • appends user bubble to Messages list                                                │</span>
+<span class="layer-ui">  │    • calls ChatService.SendAsync(text)                                                   │</span>
+<span class="layer-ui">  │    • dispatches visible commands (ReadFile, WriteFile, FolderSelect…)                   │</span>
+<span class="layer-ui">  │    • appends assistant bubble to Messages list                                           │</span>
+<span class="layer-ui">  │                                                                                          │</span>
+<span class="layer-ui">  │  ConfirmProjectAsync() / InitializeAsync()                                               │</span>
+<span class="layer-ui">  │    • calls IAgentContextService.SetProject(project, agentPath, codePath)                │</span>
+<span class="layer-ui">  └──────────────────────────────────────────────────────────────────────────────────────────┘</span>
+    │
+    │ SendAsync(userMessage)
+    ▼
+<span class="layer-app">  ┌──────────────────────────────────────────────────────────────────────────────────────────┐</span>
+<span class="layer-app">  │  ChatService  (Application layer)                                                        │</span>
+<span class="layer-app">  │  ─────────────────────────────────────────────────────────────────────────────────────── │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 1 ── Assemble system message                                                       │</span>
+<span class="layer-app">  │    context = IAgentContextService.GetCurrent()                 ◄─── reads AgentContext   │</span>
+<span class="layer-app">  │    systemMessage = providers                                                             │</span>
+<span class="layer-app">  │                      .Where(p ⇒ p.IsApplicable(context))                                 │</span>
+<span class="layer-app">  │                      .Select(p ⇒ p.GetSection(context))                                  │</span>
+<span class="layer-app">  │                      .Join("\n\n")                                                       │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 2 ── Model call                                                                    │</span>
+<span class="layer-app">  │    payload = { history: [...], systemMessage: "..." }                                    │</span>
+<span class="layer-app">  │    response = OrchestratorPipeline.SendAsync(ModelCall, payload)                         │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 3 ── Parse commands                                                                │</span>
+<span class="layer-app">  │    (displayText, commands) = ChatCommandParser.Parse(rawText)                            │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 4 ── Detect STATE_TRANSITION  (internal — never returned to VM)                   │</span>
+<span class="layer-app">  │    if StateTransitionCommand found:                                                      │</span>
+<span class="layer-app">  │      IAgentContextService.UpdateConversationState(mode)         ─────► updates context   │</span>
+<span class="layer-app">  │    filter StateTransitionCommand out of result                                           │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  │  Step 5 ── Return to ViewModel                                                           │</span>
+<span class="layer-app">  │    return ChatServiceResult(displayText, visibleCommands)                                │</span>
+<span class="layer-app">  │                                                                                          │</span>
+<span class="layer-app">  └──────────────────────────────────────────────────────────────────────────────────────────┘</span>
+    │                                  │
+    │ Step 1: reads                    │ Step 2: routes ModelCall
+    ▼                                  ▼
+<span class="layer-app">  ┌───────────────────────────────┐  ┌──────────────────────────────────────────────────────┐</span>
+<span class="layer-app">  │  IAgentContextService         │  │  OrchestratorPipeline                                │</span>
+<span class="layer-app">  │  (AgentContextService)        │  │  ────────────────────────────────────────────────── │</span>
+<span class="layer-app">  │  ─────────────────────────── │  │  Routes by ProviderCapability:                       │</span>
+<span class="layer-app">  │  holds: AgentContext          │  │    ModelCall  → AzureChatClientProvider              │</span>
+<span class="layer-app">  │  GetCurrent()                 │  │    FileRead   → FileReadProvider                     │</span>
+<span class="layer-app">  │  SetProject(...)              │  │    FileWrite  → FileWriteProvider                    │</span>
+<span class="layer-app">  │  UpdateConversationState(...) │  │    DirList    → DirectoryListProvider                │</span>
+<span class="layer-app">  └───────────────────────────────┘  └──────────────────────────────────────────────────────┘</span>
+    │                                            │
+    │                                            │
+    ▼                                            ▼
+<span class="layer-domain">  ┌───────────────────────────────┐  ┌──────────────────────────────────────────────────────┐</span>
+<span class="layer-domain">  │  AgentContext  (Domain)        │  │  AzureChatClientProvider  (Infrastructure)           │</span>
+<span class="layer-domain">  │  ─────────────────────────── │  │  ────────────────────────────────────────────────── │</span>
+<span class="layer-domain">  │  CurrentProject?              │  │  reads payload["systemMessage"]                      │</span>
+<span class="layer-domain">  │  ConversationState            │  │  prepends as ChatRole.System message                 │</span>
+<span class="layer-domain">  │  AgentFolderPath              │  │  appends history turns as User/Assistant             │</span>
+<span class="layer-domain">  │  CodeFolderPath               │  │  calls IChatClient.GetResponseAsync(messages)        │</span>
+<span class="layer-domain">  │  HasProject                   │  │  returns response.Text in result["text"]             │</span>
+<span class="layer-domain">  └───────────────────────────────┘  └──────────────────────────────────────────────────────┘</span>
+    │                                            │
+    │ providers read context (Step 1)            │ IChatClient
+    ▼                                            ▼
+<span class="layer-app">  ┌──────────────────────────────────────────────┐  ┌───────────────────────────────────────┐</span>
+<span class="layer-app">  │  ISystemMessageProvider[] (Application)       │  │  Azure AI Foundry  (external)         │</span>
+<span class="layer-app">  │  ─────────────────────────────────────────── │  │  ──────────────────────────────────── │</span>
+<span class="layer-app">  │  NoProjectProvider                            │  │  endpoint: msdnfoundry…               │</span>
+<span class="layer-app">  │    IsApplicable: !HasProject                  │  │  model: Kimi-K2.5                     │</span>
+<span class="layer-app">  │    GetSection: "You are Tower…"              │  │                                       │</span>
+<span class="layer-app">  │                                               │  └───────────────────────────────────────┘</span>
+<span class="layer-app">  │  ActiveProjectProvider                        │</span>
+<span class="layer-app">  │    IsApplicable: HasProject                   │</span>
+<span class="layer-app">  │    GetSection: project name + paths           │</span>
+<span class="layer-app">  │                                               │</span>
+<span class="layer-app">  │  ExecutionStateProvider                       │</span>
+<span class="layer-app">  │    IsApplicable: HasProject                   │</span>
+<span class="layer-app">  │    GetSection: ConversationState.Mode         │</span>
+<span class="layer-app">  └──────────────────────────────────────────────┘</span>
 
-<!-- ── Layer Overview ── -->
-<div class="layers">
 
-  <!-- UI Layer -->
-  <div class="layer layer-ui">
-    <div class="layer-title">UI Layer</div>
-
-    <div class="comp c-ui">
-      <div class="comp-name">MainWindow</div>
-      <div class="comp-detail">MetroWindow · TabControl</div>
-      <div class="comp-us"><span class="tag tag-15">US-128</span></div>
-    </div>
-
-    <div class="comp c-ui">
-      <div class="comp-name">ChatView</div>
-      <div class="comp-detail">Message list · Project confirm panel</div>
-      <div class="comp-detail">Permission request panel · Input row</div>
-      <div class="comp-us"><span class="tag tag-15">US-151 153 157</span> <span class="tag tag-16">US-163</span></div>
-    </div>
-
-    <div class="comp c-ui">
-      <div class="comp-name">ChatViewModel</div>
-      <div class="comp-detail">SendMessageCommand · ConfirmProject</div>
-      <div class="comp-detail">ApprovePermission · DenyPermission</div>
-      <div class="comp-detail">HandleCommandAsync dispatcher</div>
-      <div class="comp-detail"><strong>IAgentContextService</strong> → SetProject()</div>
-      <div class="comp-us"><span class="tag tag-15">US-152–156</span> <span class="tag tag-16">US-163</span> <span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-ui">
-      <div class="comp-name">ApiKeySettingsView/VM</div>
-      <div class="comp-detail">Enter / verify Azure API key</div>
-      <div class="comp-us"><span class="tag tag-15">US-130</span></div>
-    </div>
-  </div>
-
-  <!-- Application Layer -->
-  <div class="layer layer-app">
-    <div class="layer-title">Application Layer</div>
-
-    <div class="comp c-app c-new">
-      <div class="comp-name">ChatService  <span style="font-weight:400;font-size:10px;color:#c0a030">5-step workflow</span></div>
-      <div class="comp-detail">① Assemble system message from providers</div>
-      <div class="comp-detail">② OrchestratorPipeline.SendAsync (ModelCall)</div>
-      <div class="comp-detail">③ ChatCommandParser.Parse → DisplayText + Commands</div>
-      <div class="comp-detail">④ Detect STATE_TRANSITION → update AgentContext</div>
-      <div class="comp-detail">⑤ Return ChatServiceResult (visible commands only)</div>
-      <div class="comp-us"><span class="tag tag-15">US-128</span> <span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-app c-new">
-      <div class="comp-name">AgentContextService</div>
-      <div class="comp-detail">Singleton — holds one AgentContext</div>
-      <div class="comp-detail">GetCurrent() · SetProject() · UpdateConversationState()</div>
-      <div class="comp-us"><span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-app c-new">
-      <div class="comp-name">System Message Providers</div>
-      <div class="comp-detail">NoProjectProvider — when !HasProject</div>
-      <div class="comp-detail">ActiveProjectProvider — when HasProject</div>
-      <div class="comp-detail">ExecutionStateProvider — when HasProject</div>
-      <div class="comp-detail">Each: IsApplicable(ctx) · GetSection(ctx)</div>
-      <div class="comp-us"><span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-app">
-      <div class="comp-name">ChatCommandParser</div>
-      <div class="comp-detail">FOLDER_SELECT · PROJECT_CONFIRM · READ_FILE</div>
-      <div class="comp-detail">WRITE_FILE · LIST_DIR · PATH_PERMISSION_REQUEST</div>
-      <div class="comp-detail"><strong>STATE_TRANSITION</strong> (new)</div>
-      <div class="comp-us"><span class="tag tag-15">US-153–155</span> <span class="tag tag-16">US-158–163</span> <span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-app">
-      <div class="comp-name">OrchestratorPipeline · ProviderRegistry</div>
-      <div class="comp-detail">Routes ProviderRequest by capability</div>
-      <div class="comp-us"><span class="tag tag-base">Epic 14</span></div>
-    </div>
-
-    <div class="comp c-app">
-      <div class="comp-name">OnboardingService · ProjectService</div>
-      <div class="comp-detail">First-run check · project CRUD</div>
-      <div class="comp-us"><span class="tag tag-15">US-152–153</span></div>
-    </div>
-  </div>
-
-  <!-- Domain Layer -->
-  <div class="layer layer-dom">
-    <div class="layer-title">Domain Layer</div>
-
-    <div class="comp c-dom c-new">
-      <div class="comp-name">AgentContext</div>
-      <div class="comp-detail">CurrentProject? · AgentFolderPath</div>
-      <div class="comp-detail">CodeFolderPath · HasProject</div>
-      <div class="comp-detail"><strong>ConversationState</strong></div>
-      <div class="comp-us"><span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-dom c-new">
-      <div class="comp-name">ConversationState</div>
-      <div class="comp-detail">record(Mode: string)</div>
-      <div class="comp-detail">Initial("chat") · Implementing · Testing · Planning</div>
-      <div class="comp-detail">FromMode(string) — lowercases</div>
-      <div class="comp-us"><span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-dom c-new">
-      <div class="comp-name">ISystemMessageProvider</div>
-      <div class="comp-detail">IsApplicable(AgentContext) → bool</div>
-      <div class="comp-detail">GetSection(AgentContext) → string</div>
-      <div class="comp-us"><span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-dom c-new">
-      <div class="comp-name">IAgentContextService</div>
-      <div class="comp-detail">GetCurrent() · SetProject() · UpdateConversationState()</div>
-      <div class="comp-us"><span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-dom">
-      <div class="comp-name">ChatCommand (abstract)</div>
-      <div class="comp-detail">FolderSelect · ProjectConfirm · ReadFile</div>
-      <div class="comp-detail">WriteFile · ListDirectory · PathPermissionRequest</div>
-      <div class="comp-detail"><strong>StateTransitionCommand</strong> (internal, filtered)</div>
-      <div class="comp-us"><span class="tag tag-15">US-153</span> <span class="tag tag-16">US-158–163</span> <span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-dom">
-      <div class="comp-name">ChatServiceResult · ChatTurn</div>
-      <div class="comp-detail">record(DisplayText, Commands[])</div>
-      <div class="comp-detail">record(Role, Content, Timestamp)</div>
-      <div class="comp-us"><span class="tag tag-15">US-128</span></div>
-    </div>
-  </div>
-
-  <!-- Infrastructure Layer -->
-  <div class="layer layer-inf">
-    <div class="layer-title">Infrastructure Layer</div>
-
-    <div class="comp c-inf c-new">
-      <div class="comp-name">AzureChatClientProvider</div>
-      <div class="comp-detail">Reads payload["systemMessage"]</div>
-      <div class="comp-detail">Prepends as ChatRole.System if present</div>
-      <div class="comp-detail">Appends history turns (User / Assistant)</div>
-      <div class="comp-detail">IChatClient.GetResponseAsync → result["text"]</div>
-      <div class="comp-us"><span class="tag tag-15">US-127</span> <span class="tag tag-17">US-135b</span></div>
-    </div>
-
-    <div class="comp c-inf">
-      <div class="comp-name">FileReadProvider · FileWriteProvider</div>
-      <div class="comp-name" style="margin-top:2px">DirectoryListProvider</div>
-      <div class="comp-detail">IProvider for FileRead / FileWrite / DirList</div>
-      <div class="comp-us"><span class="tag tag-16">US-158–162</span></div>
-    </div>
-
-    <div class="comp c-inf">
-      <div class="comp-name">FileSessionGate</div>
-      <div class="comp-detail">SetProjectRoots(agent, code)</div>
-      <div class="comp-detail">CanRead / CanWrite · GrantReadAccess</div>
-      <div class="comp-us"><span class="tag tag-16">US-163</span></div>
-    </div>
-
-    <div class="comp c-inf">
-      <div class="comp-name">ScaffoldService</div>
-      <div class="comp-detail">GetAgentFolderPath → %USERPROFILE%\.TowerAgent\&lt;name&gt;</div>
-      <div class="comp-detail">GetCodeFolderPath → &lt;sourceRoot&gt;\&lt;name&gt;</div>
-      <div class="comp-detail">CreateScaffoldAsync → mkdir both</div>
-      <div class="comp-us"><span class="tag tag-15">US-156</span></div>
-    </div>
-
-    <div class="comp c-inf">
-      <div class="comp-name">WindowsCredentialManager</div>
-      <div class="comp-detail">AgentApp:AzureModelKey (DPAPI)</div>
-      <div class="comp-us"><span class="tag tag-15">US-126</span></div>
-    </div>
-
-    <div class="comp c-inf">
-      <div class="comp-name">JsonProjectRepository · JsonSettingsRepository</div>
-      <div class="comp-detail">projects.json · global-settings.json</div>
-      <div class="comp-us"><span class="tag tag-base">existing</span></div>
-    </div>
-  </div>
-
-</div><!-- /layers -->
-
-<!-- ── Flows ── -->
-<p class="flows-title">Key Runtime Flows</p>
-<div class="flows-grid">
-
-  <!-- Flow 1: Send message — 5-step -->
-  <div class="flow-card">
-    <div class="flow-card-title">① Send Message — 5-step ChatService Workflow (US-135b)</div>
-
-    <div class="flow-line">
-      <span class="flow-step-num">①</span>
-      <span class="flow-node app">AgentContextService.GetCurrent()</span>
-      <span class="flow-label">→ providers filter + build systemMessage</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-step-num">②</span>
-      <span class="flow-node app">OrchestratorPipeline</span>
-      <span class="arrow">→</span>
-      <span class="flow-node inf">AzureChatClientProvider</span>
-    </div>
-    <div class="flow-line" style="padding-left:22px">
-      <span class="flow-node ext">Azure / Kimi-K2.5</span>
-      <span class="flow-label">systemMessage + history → response</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-step-num">③</span>
-      <span class="flow-node app">ChatCommandParser.Parse</span>
-      <span class="flow-label">→ DisplayText + Commands[]</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-step-num">④</span>
-      <span class="flow-node app">detect StateTransitionCommand</span>
-      <span class="arrow">→</span>
-      <span class="flow-node dom">AgentContext.UpdateConversationState</span>
-    </div>
-    <div class="flow-line" style="padding-left:22px">
-      <span class="flow-label">StateTransitionCommand filtered out of result</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-step-num">⑤</span>
-      <span class="flow-node ui">ChatViewModel.HandleCommandAsync</span>
-      <span class="flow-label">visible commands only</span>
-    </div>
-  </div>
-
-  <!-- Flow 2: STATE_TRANSITION loop -->
-  <div class="flow-card">
-    <div class="flow-card-title">② STATE_TRANSITION Loop (US-135b)</div>
-
-    <div class="flow-line">
-      <span class="flow-node cmd">[STATE_TRANSITION:{"mode":"implementing"}]</span>
-    </div>
-    <div class="flow-line">
-      <span class="arrow">↓</span>
-      <span class="flow-node app">ChatCommandParser</span>
-      <span class="flow-label">→ StateTransitionCommand("implementing")</span>
-    </div>
-    <div class="flow-line">
-      <span class="arrow">↓ Step 4</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-node app">IAgentContextService</span>
-      <span class="flow-label">.UpdateConversationState(FromMode("implementing"))</span>
-    </div>
-    <div class="flow-line">
-      <span class="arrow">↓</span>
-      <span class="flow-node dom">AgentContext.ConversationState</span>
-      <span class="flow-label">= "implementing"</span>
-    </div>
-    <div class="flow-line">
-      <span class="arrow">↓ next message (Step 1)</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-node app">ExecutionStateProvider.GetSection</span>
-      <span class="flow-label">→ "mode: implementing" in system msg</span>
-    </div>
-  </div>
-
-  <!-- Flow 3: Project confirm + context -->
-  <div class="flow-card">
-    <div class="flow-card-title">③ Project Confirm → AgentContext Updated (US-153 + US-135b)</div>
-
-    <div class="flow-line">
-      <span class="flow-node cmd">[PROJECT_CONFIRM:{"name":"MyApp","intent":"..."}]</span>
-    </div>
-    <div class="flow-line">
-      <span class="arrow">↓</span>
-      <span class="flow-node ui">Confirm panel shown</span>
-      <span class="flow-label">user clicks Confirm</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-node app">ProjectService.CreateProjectAsync</span>
-      <span class="flow-label">→ Project persisted</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-node inf">ScaffoldService.CreateScaffoldAsync</span>
-      <span class="flow-label">mkdir agent + code folders</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-node ui">FileSessionGate.SetProjectRoots</span>
-      <span class="arrow">+</span>
-      <span class="flow-node dom">AgentContextService.SetProject</span>
-    </div>
-    <div class="flow-line">
-      <span class="arrow">↓ next message (Step 1)</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-node app">ActiveProjectProvider</span>
-      <span class="flow-label">IsApplicable → true → project name + paths in system msg</span>
-    </div>
-  </div>
-
-  <!-- Flow 4: File read with permission gate -->
-  <div class="flow-card">
-    <div class="flow-card-title">④ File Read + Permission Gate (US-159 + US-163)</div>
-
-    <div class="flow-line">
-      <span class="flow-node cmd">[READ_FILE:{"path":"C:/code/..."}]</span>
-    </div>
-    <div class="flow-line">
-      <span class="arrow">↓</span>
-      <span class="flow-node app">ChatCommandParser</span>
-      <span class="flow-label">→ ReadFileCommand(path)</span>
-    </div>
-    <div class="flow-line">
-      <span class="flow-node ui">FileSessionGate.CanRead(path)?</span>
-    </div>
-    <div class="flow-line" style="padding-left:12px">
-      <span class="flow-label">No →</span>
-      <span class="flow-node cmd">[PATH_PERMISSION_REQUEST:{"path":"...","reason":"..."}]</span>
-    </div>
-    <div class="flow-line" style="padding-left:12px">
-      <span class="flow-label">Yes →</span>
-      <span class="flow-node inf">FileReadProvider</span>
-      <span class="arrow">→</span>
-      <span class="flow-node app">ChatService.SendAsync(result)</span>
-    </div>
-  </div>
-
-</div><!-- /flows-grid -->
-
-<!-- ── Command Protocol ── -->
-<div class="protocol">
-  <div class="protocol-title">Command Protocol — Embedded JSON Markers (ChatCommandParser)</div>
-  <div class="cmd-row">
-    <span class="cmd-marker">[FOLDER_SELECT:{"reason":"&lt;why&gt;"}]</span>
-    <span class="cmd-desc">Model requests OS folder browser</span>
-    <span class="cmd-handler">US-155</span>
-  </div>
-  <div class="cmd-row">
-    <span class="cmd-marker">[PROJECT_CONFIRM:{"name":"&lt;n&gt;","intent":"&lt;i&gt;"}]</span>
-    <span class="cmd-desc">Model proposes project → Confirm/Cancel panel</span>
-    <span class="cmd-handler">US-153</span>
-  </div>
-  <div class="cmd-row">
-    <span class="cmd-marker">[READ_FILE:{"path":"&lt;p&gt;"}]</span>
-    <span class="cmd-desc">Model requests file content (gate checked)</span>
-    <span class="cmd-handler">US-159</span>
-  </div>
-  <div class="cmd-row">
-    <span class="cmd-marker">[WRITE_FILE:{"path":"&lt;p&gt;","content":"&lt;c&gt;"}]</span>
-    <span class="cmd-desc">Model writes file (brace-depth extraction)</span>
-    <span class="cmd-handler">US-160</span>
-  </div>
-  <div class="cmd-row">
-    <span class="cmd-marker">[LIST_DIR:{"path":"&lt;p&gt;"}]</span>
-    <span class="cmd-desc">Model lists directory entries</span>
-    <span class="cmd-handler">US-162</span>
-  </div>
-  <div class="cmd-row">
-    <span class="cmd-marker">[PATH_PERMISSION_REQUEST:{"path":"&lt;p&gt;","reason":"&lt;r&gt;"}]</span>
-    <span class="cmd-desc">Model requests read access to path outside roots</span>
-    <span class="cmd-handler">US-163</span>
-  </div>
-  <div class="cmd-row" style="border-top:1px solid #2a2a40; padding-top:8px; margin-top:4px">
-    <span class="cmd-marker" style="border-color:#806030; color:#d0a040">[STATE_TRANSITION:{"mode":"&lt;m&gt;"}]</span>
-    <span class="cmd-desc">Model signals conversation mode change — <strong>internal, never shown to user</strong></span>
-    <span class="cmd-handler" style="color:#d0a040">US-135b</span>
-  </div>
-</div>
-
-<!-- ── Legend ── -->
+<span class="note">  STATE_TRANSITION loop (Step 4):
+  ──────────────────────────────────────────────────────────────────────────────────────────
+  Model response may contain: "... [STATE_TRANSITION:{"mode":"implementing"}] ..."
+    → ChatCommandParser extracts StateTransitionCommand("implementing")
+    → ChatService detects it, calls IAgentContextService.UpdateConversationState
+    → AgentContext.ConversationState updated to ConversationState.FromMode("implementing")
+    → StateTransitionCommand filtered out — NOT returned to ChatViewModel
+    → Next message: ExecutionStateProvider.GetSection() returns "implementing"
+  ──────────────────────────────────────────────────────────────────────────────────────────</span>
+</pre>
 <div class="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:#5060cc"></div> UI Layer</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#508050"></div> Application Layer</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#805050"></div> Domain Layer</div>
-  <div class="legend-item"><div class="legend-dot" style="background:#508080"></div> Infrastructure Layer</div>
-  <div class="legend-item"><span class="tag tag-17">US-135b</span> Epic 17 — AgentContext</div>
-  <div class="legend-item"><span class="tag tag-16">US-16x</span> Epic 16 — File Management</div>
-  <div class="legend-item"><span class="tag tag-15">US-15x</span> Epic 15 — Chat UI</div>
-  <div class="legend-item"><span class="tag tag-base">base</span> Prior epics</div>
+  <span class="layer-ui">■ UI layer</span>
+  <span class="layer-app">■ Application layer</span>
+  <span class="layer-domain">■ Domain layer</span>
+  <span class="layer-infra">■ Infrastructure layer</span>
+  <span class="layer-external">■ External</span>
 </div>
-
 </body>
 </html>
