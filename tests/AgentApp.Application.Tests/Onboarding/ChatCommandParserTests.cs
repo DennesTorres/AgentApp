@@ -63,4 +63,58 @@ public class ChatCommandParserTests
         var (text, _) = parser.Parse(input);
         Assert.Equal(string.Empty, text.Trim());
     }
+
+    [Fact]
+    public void Parse_ReadFileCommand_ExtractsPath()
+    {
+        var parser = BuildParser();
+        var (_, commands) = parser.Parse("[READ_FILE:{\"path\":\"/src/Program.cs\"}]");
+        Assert.Single(commands);
+        var cmd = Assert.IsType<ReadFileCommand>(commands[0]);
+        Assert.Equal("/src/Program.cs", cmd.Path);
+    }
+
+    [Fact]
+    public void Parse_WriteFileCommand_ExtractsPathAndContent()
+    {
+        var parser = BuildParser();
+        var (_, commands) = parser.Parse("[WRITE_FILE:{\"path\":\"/src/Hello.cs\",\"content\":\"class Hello { }\"}]");
+        Assert.Single(commands);
+        var cmd = Assert.IsType<WriteFileCommand>(commands[0]);
+        Assert.Equal("/src/Hello.cs", cmd.Path);
+        Assert.Equal("class Hello { }", cmd.Content);
+    }
+
+    [Fact]
+    public void Parse_WriteFileCommand_ContentWithNestedBraces_ExtractsCorrectly()
+    {
+        var parser = BuildParser();
+        var content = "public class Foo { public void Bar() { return; } }";
+        var input = $"[WRITE_FILE:{{\"path\":\"/src/Foo.cs\",\"content\":\"{content}\"}}]";
+        var (_, commands) = parser.Parse(input);
+        Assert.Single(commands);
+        var cmd = Assert.IsType<WriteFileCommand>(commands[0]);
+        Assert.Equal(content, cmd.Content);
+    }
+
+    [Fact]
+    public void Parse_ListDirCommand_ExtractsPath()
+    {
+        var parser = BuildParser();
+        var (_, commands) = parser.Parse("[LIST_DIR:{\"path\":\"/src\"}]");
+        Assert.Single(commands);
+        var cmd = Assert.IsType<ListDirectoryCommand>(commands[0]);
+        Assert.Equal("/src", cmd.Path);
+    }
+
+    [Fact]
+    public void Parse_PathPermissionRequestCommand_ExtractsPathAndReason()
+    {
+        var parser = BuildParser();
+        var (_, commands) = parser.Parse("[PATH_PERMISSION_REQUEST:{\"path\":\"/docs\",\"reason\":\"Need readme\"}]");
+        Assert.Single(commands);
+        var cmd = Assert.IsType<PathPermissionRequestCommand>(commands[0]);
+        Assert.Equal("/docs", cmd.Path);
+        Assert.Equal("Need readme", cmd.Reason);
+    }
 }

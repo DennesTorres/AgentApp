@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:mah="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         xmlns:chat="clr-namespace:AgentApp.UI.Views.Chat"
+        xmlns:projects="clr-namespace:AgentApp.UI.Views.Projects"
         xmlns:settings="clr-namespace:AgentApp.UI.Views.Settings"
         mc:Ignorable="d"
         Title="{Binding Title}"
@@ -13,6 +14,9 @@
     <TabControl>
         <TabItem Header="Chat">
             <chat:ChatView DataContext="{Binding ChatViewModel}" />
+        </TabItem>
+        <TabItem Header="Projects">
+            <projects:ProjectListView DataContext="{Binding ProjectListViewModel}" />
         </TabItem>
         <TabItem Header="Settings">
             <settings:ApiKeySettingsView DataContext="{Binding ApiKeySettingsViewModel}" />

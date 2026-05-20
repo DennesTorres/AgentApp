@@ -11,6 +11,7 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- US-157: Active project indicator -->
@@ -63,7 +64,6 @@
                         </Border.Style>
                         <StackPanel MaxWidth="560">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                <!-- Tower avatar (US-151) -->
                                 <Border Width="22" Height="22" CornerRadius="11"
                                         Background="#5B8AF5" Margin="0,0,6,0">
                                     <Border.Style>
@@ -94,8 +94,7 @@
         </ListBox>
 
         <!-- US-153: Project confirm panel -->
-        <Border Grid.Row="2" Background="#1A2A1A" Padding="12,8" Margin="8,0,8,4"
-                CornerRadius="6">
+        <Border Grid.Row="2" Background="#1A2A1A" Padding="12,8" Margin="8,0,8,4" CornerRadius="6">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -124,8 +123,38 @@
             </Grid>
         </Border>
 
+        <!-- US-163: Path permission request panel -->
+        <Border Grid.Row="3" Background="#2A1A2A" Padding="12,8" Margin="8,0,8,4" CornerRadius="6">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPermissionRequestPending}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding PendingPermissionSummary}"
+                           TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="#D8A8D8" FontSize="12" />
+                <Button Grid.Column="1" Content="Allow"
+                        Command="{Binding ApprovePermissionCommand}"
+                        Margin="8,0,4,0" MinWidth="70" MinHeight="30" />
+                <Button Grid.Column="2" Content="Deny"
+                        Command="{Binding DenyPermissionCommand}"
+                        MinWidth="70" MinHeight="30" />
+            </Grid>
+        </Border>
+
         <!-- Input row -->
-        <Grid Grid.Row="3" Margin="8,0,8,8">
+        <Grid Grid.Row="4" Margin="8,0,8,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

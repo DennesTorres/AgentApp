@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using AgentApp.Application.Chat;
+using AgentApp.Application.FileSystem;
 using AgentApp.Application.Onboarding;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
@@ -8,12 +9,14 @@ using AgentApp.Application.Sessions;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Providers;
 using AgentApp.Infrastructure.Credentials;
+using AgentApp.Infrastructure.FileSystem;
 using AgentApp.Infrastructure.ModelAccess;
 using AgentApp.Infrastructure.Persistence;
 using AgentApp.Infrastructure.ProjectSwitch;
 using AgentApp.Infrastructure.Scaffold;
 using AgentApp.UI.ViewModels;
 using AgentApp.UI.ViewModels.Chat;
+using AgentApp.UI.ViewModels.Projects;
 using AgentApp.UI.ViewModels.Settings;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -47,8 +50,9 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IProjectSwitchHandler, NullProjectSwitchHandler>();
         services.AddSingleton<ICredentialService, WindowsCredentialManager>();
         services.AddSingleton<IScaffoldService, ScaffoldService>();
+        services.AddSingleton<IFilePermissionGate, FileSessionGate>();
 
-        // Provider pipeline
+        // Provider pipeline — file providers registered alongside model provider
         services.AddSingleton<IProviderRegistry>(sp =>
         {
             var registry = new ProviderRegistry();
@@ -56,6 +60,9 @@ public partial class App : System.Windows.Application
             var chatClient = AzureClientFactory.BuildFromCredentials(credentialService);
             if (chatClient is not null)
                 registry.Register(new AzureChatClientProvider(chatClient));
+            registry.Register(new FileReadProvider());
+            registry.Register(new FileWriteProvider());
+            registry.Register(new DirectoryListProvider());
             return registry;
         });
         services.AddSingleton<OrchestratorPipeline>();
@@ -72,6 +79,7 @@ public partial class App : System.Windows.Application
 
         // UI
         services.AddSingleton<ChatViewModel>();
+        services.AddSingleton<ProjectListViewModel>();
         services.AddSingleton<ApiKeySettingsViewModel>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();
