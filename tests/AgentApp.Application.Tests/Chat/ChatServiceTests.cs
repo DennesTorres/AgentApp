@@ -1,4 +1,5 @@
 using AgentApp.Application.Chat;
+using AgentApp.Application.Onboarding;
 using AgentApp.Application.Providers;
 using AgentApp.Domain.Chat;
 using AgentApp.Infrastructure.Credentials;
@@ -15,7 +16,7 @@ public class ChatServiceTests
         var registry = new ProviderRegistry();
         registry.Register(provider);
         var pipeline = new OrchestratorPipeline(registry);
-        return new ChatService(pipeline);
+        return new ChatService(pipeline, new ChatCommandParser());
     }
 
     [Fact]
@@ -25,7 +26,7 @@ public class ChatServiceTests
 
         var result = await service.SendAsync("Say hello in one word.");
 
-        Assert.False(string.IsNullOrWhiteSpace(result));
+        Assert.False(string.IsNullOrWhiteSpace(result.DisplayText));
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using AgentApp.Application.Chat;
+using AgentApp.Application.Onboarding;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
 using AgentApp.Application.Sessions;
@@ -10,6 +11,7 @@ using AgentApp.Infrastructure.Credentials;
 using AgentApp.Infrastructure.ModelAccess;
 using AgentApp.Infrastructure.Persistence;
 using AgentApp.Infrastructure.ProjectSwitch;
+using AgentApp.Infrastructure.Scaffold;
 using AgentApp.UI.ViewModels;
 using AgentApp.UI.ViewModels.Chat;
 using AgentApp.UI.ViewModels.Settings;
@@ -44,8 +46,9 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ISettingsRepository>(_ => new JsonSettingsRepository(appDataFolder));
         services.AddSingleton<IProjectSwitchHandler, NullProjectSwitchHandler>();
         services.AddSingleton<ICredentialService, WindowsCredentialManager>();
+        services.AddSingleton<IScaffoldService, ScaffoldService>();
 
-        // Provider pipeline — model provider registered if API key is present in credential store
+        // Provider pipeline
         services.AddSingleton<IProviderRegistry>(sp =>
         {
             var registry = new ProviderRegistry();
@@ -56,11 +59,15 @@ public partial class App : System.Windows.Application
             return registry;
         });
         services.AddSingleton<OrchestratorPipeline>();
+        services.AddSingleton<IChatCommandParser, ChatCommandParser>();
 
         // Application
         services.AddSingleton<SessionService>();
         services.AddSingleton<ProjectService>();
         services.AddSingleton<ProjectSwitchService>();
+        services.AddSingleton<IOnboardingService>(sp => new OnboardingService(
+            sp.GetRequiredService<IProjectRepository>(),
+            sp.GetRequiredService<ISettingsRepository>()));
         services.AddSingleton<ChatService>();
 
         // UI

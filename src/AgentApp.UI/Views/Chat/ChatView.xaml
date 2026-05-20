@@ -7,11 +7,33 @@
              d:DesignHeight="600" d:DesignWidth="800">
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ListBox Grid.Row="0"
+        <!-- US-157: Active project indicator -->
+        <Border Grid.Row="0" Background="#1E1E2E" Padding="12,6">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding ActiveProjectName}" Value="">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Project: " Foreground="#888" FontSize="12" />
+                <TextBlock Text="{Binding ActiveProjectName}" Foreground="#A0C4FF"
+                           FontSize="12" FontWeight="SemiBold" />
+            </StackPanel>
+        </Border>
+
+        <!-- Message list (US-151: agent persona) -->
+        <ListBox Grid.Row="1"
                  ItemsSource="{Binding Messages}"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
@@ -30,23 +52,38 @@
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="Background" Value="#2D2D30" />
+                                <Setter Property="HorizontalAlignment" Value="Left" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding IsUser}" Value="True">
                                         <Setter Property="Background" Value="#1A3A5C" />
                                         <Setter Property="HorizontalAlignment" Value="Right" />
                                     </DataTrigger>
-                                    <DataTrigger Binding="{Binding IsUser}" Value="False">
-                                        <Setter Property="HorizontalAlignment" Value="Left" />
-                                    </DataTrigger>
                                 </Style.Triggers>
                             </Style>
                         </Border.Style>
                         <StackPanel MaxWidth="560">
-                            <TextBlock Text="{Binding Role}"
-                                       FontSize="10" FontWeight="Bold"
-                                       Opacity="0.6" Margin="0,0,0,3" />
-                            <TextBlock Text="{Binding Content}"
-                                       TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <!-- Tower avatar (US-151) -->
+                                <Border Width="22" Height="22" CornerRadius="11"
+                                        Background="#5B8AF5" Margin="0,0,6,0">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsAgent}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="T" Foreground="White" FontSize="11" FontWeight="Bold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="{Binding Role}"
+                                           FontSize="10" FontWeight="Bold"
+                                           Opacity="0.6" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Content}" TextWrapping="Wrap" />
                             <TextBlock Text="{Binding Timestamp}"
                                        FontSize="10" Opacity="0.4"
                                        HorizontalAlignment="Right" Margin="0,3,0,0" />
@@ -56,7 +93,39 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <Grid Grid.Row="1" Margin="8,0,8,8">
+        <!-- US-153: Project confirm panel -->
+        <Border Grid.Row="2" Background="#1A2A1A" Padding="12,8" Margin="8,0,8,4"
+                CornerRadius="6">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasProjectConfirmPending}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding PendingProjectSummary}"
+                           TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="#A8D8A8" FontSize="12" />
+                <Button Grid.Column="1" Content="Confirm"
+                        Command="{Binding ConfirmProjectCommand}"
+                        Margin="8,0,4,0" MinWidth="70" MinHeight="30" />
+                <Button Grid.Column="2" Content="Cancel"
+                        Command="{Binding CancelProjectCommand}"
+                        MinWidth="70" MinHeight="30" />
+            </Grid>
+        </Border>
+
+        <!-- Input row -->
+        <Grid Grid.Row="3" Margin="8,0,8,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

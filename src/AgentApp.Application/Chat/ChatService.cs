@@ -1,5 +1,6 @@
 using AgentApp.Application.Providers;
 using AgentApp.Domain.Chat;
+using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Providers;
 
 namespace AgentApp.Application.Chat;
@@ -7,14 +8,16 @@ namespace AgentApp.Application.Chat;
 public class ChatService
 {
     private readonly OrchestratorPipeline _pipeline;
+    private readonly IChatCommandParser _commandParser;
     private readonly List<ChatTurn> _history = [];
 
-    public ChatService(OrchestratorPipeline pipeline)
+    public ChatService(OrchestratorPipeline pipeline, IChatCommandParser commandParser)
     {
         _pipeline = pipeline;
+        _commandParser = commandParser;
     }
 
-    public async Task<string> SendAsync(string userMessage, CancellationToken cancellationToken = default)
+    public async Task<ChatServiceResult> SendAsync(string userMessage, CancellationToken cancellationToken = default)
     {
         _history.Add(new ChatTurn(ChatTurnRole.User, userMessage, DateTimeOffset.UtcNow));
 
@@ -24,11 +27,13 @@ public class ChatService
         var response = await _pipeline.SendAsync(request, cancellationToken);
 
         if (!response.Success)
-            return $"Error: {response.ErrorMessage}";
+            return new ChatServiceResult($"Error: {response.ErrorMessage}", []);
 
-        var text = (string)response.Result["text"];
-        _history.Add(new ChatTurn(ChatTurnRole.Assistant, text, DateTimeOffset.UtcNow));
-        return text;
+        var rawText = (string)response.Result["text"];
+        var (displayText, commands) = _commandParser.Parse(rawText);
+
+        _history.Add(new ChatTurn(ChatTurnRole.Assistant, rawText, DateTimeOffset.UtcNow));
+        return new ChatServiceResult(displayText, commands);
     }
 
     public IReadOnlyList<ChatTurn> History => _history;
