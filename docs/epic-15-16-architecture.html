@@ -124,6 +124,52 @@
     → StateTransitionCommand filtered out — NOT returned to ChatViewModel
     → Next message: ExecutionStateProvider.GetSection() returns "implementing"
   ──────────────────────────────────────────────────────────────────────────────────────────</span>
+
+
+<span class="note">  Command dispatch — after Step 5, ChatViewModel handles each visible command:
+  ──────────────────────────────────────────────────────────────────────────────────────────</span>
+
+<span class="layer-ui">  ┌──────────────────────────────────────────────────────────────────────────────────────────┐</span>
+<span class="layer-ui">  │  ChatViewModel.HandleCommandAsync                                                        │</span>
+<span class="layer-ui">  │  ─────────────────────────────────────────────────────────────────────────────────────── │</span>
+<span class="layer-ui">  │                                                                                          │</span>
+<span class="layer-ui">  │  Interactive commands (shown as UI panels — user decides):                              │</span>
+<span class="layer-ui">  │    [FOLDER_SELECT]         → OS folder dialog → path injected back to ChatService        │</span>
+<span class="layer-ui">  │    [PROJECT_CONFIRM]       → confirm panel → user clicks OK:                             │</span>
+<span class="layer-ui">  │                                  ProjectService.CreateProjectAsync()                     │</span>
+<span class="layer-ui">  │                                  ScaffoldService.CreateScaffoldAsync()                   │</span>
+<span class="layer-ui">  │                                  IAgentContextService.SetProject(project, paths)         │</span>
+<span class="layer-ui">  │    [PATH_PERMISSION_REQUEST]→ permission panel → user approves:                         │</span>
+<span class="layer-ui">  │                                  FileSessionGate.GrantReadAccess(path)                  │</span>
+<span class="layer-ui">  │                                                                                          │</span>
+<span class="layer-ui">  │  Tool commands (executed silently — result injected back into conversation):            │</span>
+<span class="layer-ui">  │    [READ_FILE]  ──┐                                                                      │</span>
+<span class="layer-ui">  │    [WRITE_FILE] ──┤──► FileSessionGate.CanRead / CanWrite(path) ?                      │</span>
+<span class="layer-ui">  │    [LIST_DIR]   ──┘         No  → emit PathPermissionRequestCommand (interactive above) │</span>
+<span class="layer-ui">  │                             Yes → OrchestratorPipeline → file provider → result         │</span>
+<span class="layer-ui">  │                                   → ChatService.SendAsync (inject tool result)           │</span>
+<span class="layer-ui">  └──────────────────────────────────────────────────────────────────────────────────────────┘</span>
+    │ tool commands (allowed path)
+    ▼
+<span class="layer-app">  ┌───────────────────────────────────────────────┐</span>
+<span class="layer-app">  │  FileSessionGate  (Infrastructure)            │</span>
+<span class="layer-app">  │  ─────────────────────────────────────────── │</span>
+<span class="layer-app">  │  Roots:  AgentFolderPath                      │</span>
+<span class="layer-app">  │          CodeFolderPath                       │</span>
+<span class="layer-app">  │  CanRead / CanWrite → path within roots?      │</span>
+<span class="layer-app">  │  GrantReadAccess(path) → user-approved extras │</span>
+<span class="layer-app">  └───────────────────────────────────────────────┘</span>
+    │ → OrchestratorPipeline routes to:
+    ▼
+<span class="layer-infra">  ┌──────────────────────────────────────────────────────────────────────────────────────────┐</span>
+<span class="layer-infra">  │  File Providers  (Infrastructure)                                                        │</span>
+<span class="layer-infra">  │  ─────────────────────────────────────────────────────────────────────────────────────── │</span>
+<span class="layer-infra">  │  FileReadProvider       ProviderCapability.FileRead   → reads file → string result       │</span>
+<span class="layer-infra">  │  FileWriteProvider      ProviderCapability.FileWrite  → writes content to path           │</span>
+<span class="layer-infra">  │  DirectoryListProvider  ProviderCapability.DirList    → lists entries with metadata      │</span>
+<span class="layer-infra">  │                                                                                          │</span>
+<span class="layer-infra">  │  Result returned to ChatViewModel → injected back as next ChatService.SendAsync call     │</span>
+<span class="layer-infra">  └──────────────────────────────────────────────────────────────────────────────────────────┘</span>
 </pre>
 <div class="legend">
   <span class="layer-ui">■ UI layer</span>
