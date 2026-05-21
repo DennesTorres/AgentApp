@@ -64,6 +64,7 @@
                         </Border.Style>
                         <StackPanel MaxWidth="560">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <!-- US-182: Agent avatar -->
                                 <Border Width="22" Height="22" CornerRadius="11"
                                         Background="#5B8AF5" Margin="0,0,6,0">
                                     <Border.Style>
@@ -77,6 +78,22 @@
                                         </Style>
                                     </Border.Style>
                                     <TextBlock Text="T" Foreground="White" FontSize="11" FontWeight="Bold"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <!-- US-183: User avatar -->
+                                <Border Width="22" Height="22" CornerRadius="11"
+                                        Background="#4A7A4A" Margin="0,0,6,0">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="U" Foreground="White" FontSize="11" FontWeight="Bold"
                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
                                 <TextBlock Text="{Binding Role}"
@@ -159,11 +176,16 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0"
+            <TextBox x:Name="InputTextBox"
+                     Grid.Column="0"
                      Text="{Binding UserInput, UpdateSourceTrigger=PropertyChanged}"
                      Margin="0,0,6,0"
-                     VerticalContentAlignment="Center"
                      MinHeight="36"
+                     MaxHeight="120"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     KeyDown="InputTextBox_KeyDown"
                      IsEnabled="{Binding IsBusy, Converter={StaticResource BooleanInverseConverter}}" />
             <Button Grid.Column="1"
                     Content="Send"

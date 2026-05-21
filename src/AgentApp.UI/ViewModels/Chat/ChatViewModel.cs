@@ -62,14 +62,16 @@ public partial class ChatViewModel : ObservableObject
     {
         var text = UserInput.Trim();
         UserInput = string.Empty;
-        IsBusy = true;
 
+        // C-004: Show user message immediately, before processing
         Messages.Add(new ChatTurnViewModel
         {
             Role = "User",
             Content = text,
             Timestamp = DateTime.Now.ToString("HH:mm")
         });
+
+        IsBusy = true;
 
         var result = await _presenter.SendAsync(text);
 
