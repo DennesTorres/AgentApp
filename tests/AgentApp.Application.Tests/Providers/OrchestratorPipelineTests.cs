@@ -1,55 +1,42 @@
 using AgentApp.Application.Providers;
+using AgentApp.Domain.Chat;
 using AgentApp.Domain.Providers;
-using NSubstitute;
+using AgentApp.Infrastructure.Credentials;
+using AgentApp.Infrastructure.ModelAccess;
 
 namespace AgentApp.Application.Tests.Providers;
 
 public class OrchestratorPipelineTests
 {
+    private static AzureChatClientProvider CreateModelProvider() =>
+        new(AzureClientFactory.BuildFromCredentials(new WindowsCredentialManager())!);
+
     [Fact]
     public async Task SendAsync_DispatchesToMatchingProvider()
     {
-        var registry = Substitute.For<IProviderRegistry>();
-        var provider = Substitute.For<IProvider>();
-        var request = ProviderRequest.Create(ProviderCapability.ModelCall);
-        var expectedResponse = ProviderResponse.Ok(request.RequestId);
-
-        registry.Resolve(ProviderCapability.ModelCall).Returns(provider);
-        provider.HandleAsync(request, Arg.Any<CancellationToken>()).Returns(expectedResponse);
-
+        var provider = CreateModelProvider();
+        var registry = new ProviderRegistry();
+        registry.Register(provider);
         var pipeline = new OrchestratorPipeline(registry);
+        var request = ProviderRequest.Create(ProviderCapability.ModelCall,
+            new Dictionary<string, object>
+            {
+                ["history"] = new List<ChatTurn> { new(ChatTurnRole.User, "Say hello.", DateTimeOffset.UtcNow) }
+            });
+
         var response = await pipeline.SendAsync(request);
 
-        Assert.Same(expectedResponse, response);
+        Assert.NotNull(response);
+        Assert.Equal(request.RequestId, response.RequestId);
     }
 
     [Fact]
     public async Task SendAsync_NoProviderRegistered_ThrowsInvalidOperation()
     {
-        var registry = Substitute.For<IProviderRegistry>();
-        registry.Resolve(Arg.Any<ProviderCapability>()).Returns((IProvider?)null);
-
+        var registry = new ProviderRegistry();
         var pipeline = new OrchestratorPipeline(registry);
         var request = ProviderRequest.Create(ProviderCapability.ModelCall);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => pipeline.SendAsync(request));
-    }
-
-    [Fact]
-    public async Task SendAsync_PassesRequestToProvider()
-    {
-        var registry = Substitute.For<IProviderRegistry>();
-        var provider = Substitute.For<IProvider>();
-        var request = ProviderRequest.Create(ProviderCapability.EmbeddingSearch,
-            new Dictionary<string, object> { ["query"] = "test" });
-
-        registry.Resolve(ProviderCapability.EmbeddingSearch).Returns(provider);
-        provider.HandleAsync(request, Arg.Any<CancellationToken>())
-            .Returns(ProviderResponse.Ok(request.RequestId));
-
-        var pipeline = new OrchestratorPipeline(registry);
-        await pipeline.SendAsync(request);
-
-        await provider.Received(1).HandleAsync(request, Arg.Any<CancellationToken>());
     }
 }

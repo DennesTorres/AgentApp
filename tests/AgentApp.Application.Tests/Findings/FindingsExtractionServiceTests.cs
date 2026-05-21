@@ -2,23 +2,25 @@ using AgentApp.Application.Findings;
 using AgentApp.Domain.Findings;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Rules;
-using NSubstitute;
+using AgentApp.Infrastructure.FileSystem;
 
 namespace AgentApp.Application.Tests.Findings;
 
-public class FindingsExtractionServiceTests
+public class FindingsExtractionServiceTests : IDisposable
 {
+    private readonly string _tempFolder;
     private readonly IMdFileRepository _mdFileRepository;
     private readonly FindingsExtractionService _sut;
 
     public FindingsExtractionServiceTests()
     {
-        _mdFileRepository = Substitute.For<IMdFileRepository>();
+        _tempFolder = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+        Directory.CreateDirectory(_tempFolder);
+        _mdFileRepository = new JsonMdFileRepository(_tempFolder);
         _sut = new FindingsExtractionService(_mdFileRepository);
-
-        _mdFileRepository.GetByNameAsync(Arg.Any<string>(), Arg.Any<MdFileScope>(), Arg.Any<Guid?>())
-            .Returns((MdFile?)null);
     }
+
+    public void Dispose() => Directory.Delete(_tempFolder, recursive: true);
 
     [Fact]
     public void IsMeaningful_NonEmptyFindingsWithSubstantialContent_ReturnsTrue()
@@ -40,11 +42,6 @@ public class FindingsExtractionServiceTests
     [Fact]
     public void IsMeaningful_AllFindingsBelowMinLength_ReturnsFalse()
     {
-        var findings = new List<TechnicalFinding>
-        {
-            TechnicalFinding.Create("dotnet", "Short but valid finding text here!!")
-        };
-        // Content below 40 chars threshold → not meaningful
         var shortFindings = new List<TechnicalFinding>
         {
             TechnicalFinding.Create("dotnet", "Too short finding text here!")
@@ -79,8 +76,9 @@ public class FindingsExtractionServiceTests
 
         await _sut.WriteToTechnologyFilesAsync(findings);
 
-        await _mdFileRepository.Received(1).SaveAsync(Arg.Is<MdFile>(f =>
-            f.Name == "technology-dotnet" && f.IsTechnology));
+        var saved = await _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null);
+        Assert.NotNull(saved);
+        Assert.True(saved.IsTechnology);
     }
 
     [Fact]
@@ -88,8 +86,7 @@ public class FindingsExtractionServiceTests
     {
         var content = "Always use async/await over .Result to avoid deadlocks.";
         var existingFile = MdFile.CreateTechnology("technology-dotnet", content);
-        _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null)
-            .Returns(existingFile);
+        await _mdFileRepository.SaveAsync(existingFile);
 
         var findings = new List<TechnicalFinding>
         {
@@ -98,15 +95,16 @@ public class FindingsExtractionServiceTests
 
         await _sut.WriteToTechnologyFilesAsync(findings);
 
-        await _mdFileRepository.DidNotReceive().SaveAsync(Arg.Any<MdFile>());
+        var saved = await _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null);
+        Assert.NotNull(saved);
+        Assert.Equal(content, saved.Content);
     }
 
     [Fact]
     public async Task WriteToTechnologyFilesAsync_ExistingFileNonDuplicate_AppendsContent()
     {
         var existingFile = MdFile.CreateTechnology("technology-dotnet", "## Existing finding\nContent here.");
-        _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null)
-            .Returns(existingFile);
+        await _mdFileRepository.SaveAsync(existingFile);
 
         var findings = new List<TechnicalFinding>
         {
@@ -115,7 +113,9 @@ public class FindingsExtractionServiceTests
 
         await _sut.WriteToTechnologyFilesAsync(findings);
 
-        await _mdFileRepository.Received(1).SaveAsync(Arg.Is<MdFile>(f =>
-            f.Content.Contains("Existing finding") && f.Content.Contains("async/await")));
+        var saved = await _mdFileRepository.GetByNameAsync("technology-dotnet", MdFileScope.Global, null);
+        Assert.NotNull(saved);
+        Assert.Contains("Existing finding", saved.Content);
+        Assert.Contains("async/await", saved.Content);
     }
 }

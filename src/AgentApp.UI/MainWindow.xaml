@@ -1,17 +1,21 @@
-﻿<mah:MetroWindow x:Class="AgentApp.UI.MainWindow"
+<mah:MetroWindow x:Class="AgentApp.UI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:mah="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
+        xmlns:chat="clr-namespace:AgentApp.UI.Views.Chat"
+        xmlns:settings="clr-namespace:AgentApp.UI.Views.Settings"
         mc:Ignorable="d"
         Title="{Binding Title}"
         Height="720" Width="1280"
         WindowStartupLocation="CenterScreen">
-    <Grid>
-        <TextBlock Text="AgentApp — Epic 1 scaffold"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   FontSize="18" />
-    </Grid>
+    <TabControl>
+        <TabItem Header="Chat">
+            <chat:ChatView DataContext="{Binding ChatViewModel}" />
+        </TabItem>
+        <TabItem Header="Settings">
+            <settings:ApiKeySettingsView DataContext="{Binding ApiKeySettingsViewModel}" />
+        </TabItem>
+    </TabControl>
 </mah:MetroWindow>
