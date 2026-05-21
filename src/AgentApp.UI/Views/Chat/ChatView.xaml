@@ -185,7 +185,7 @@
                      AcceptsReturn="True"
                      TextWrapping="Wrap"
                      VerticalScrollBarVisibility="Auto"
-                     KeyDown="InputTextBox_KeyDown"
+                     PreviewKeyDown="InputTextBox_PreviewKeyDown"
                      IsEnabled="{Binding IsBusy, Converter={StaticResource BooleanInverseConverter}}" />
             <Button Grid.Column="1"
                     Content="Send"

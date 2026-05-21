@@ -11,7 +11,7 @@ public partial class ChatView : UserControl
         InitializeComponent();
     }
 
-    private void InputTextBox_KeyDown(object sender, KeyEventArgs e)
+    private void InputTextBox_PreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key != Key.Return)
             return;
