@@ -1,11 +1,6 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
 using AgentApp.Application.Chat;
-using AgentApp.Application.Providers;
-using AgentApp.Application.Projects;
 using AgentApp.Domain.Chat;
-using AgentApp.Domain.Interfaces;
-using AgentApp.Domain.Providers;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -14,13 +9,7 @@ namespace AgentApp.UI.ViewModels.Chat;
 
 public partial class ChatViewModel : ObservableObject
 {
-    private readonly ChatService _chatService;
-    private readonly IOnboardingService _onboardingService;
-    private readonly ProjectService _projectService;
-    private readonly IScaffoldService _scaffoldService;
-    private readonly ISettingsRepository _settingsRepository;
-    private readonly OrchestratorPipeline _pipeline;
-    private readonly IFilePermissionGate _fileGate;
+    private readonly ChatOrchestrator _orchestrator;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendMessageCommand))]
@@ -53,44 +42,19 @@ public partial class ChatViewModel : ObservableObject
 
     public ObservableCollection<ChatTurnViewModel> Messages { get; } = [];
 
-    public ChatViewModel(
-        ChatService chatService,
-        IOnboardingService onboardingService,
-        ProjectService projectService,
-        IScaffoldService scaffoldService,
-        ISettingsRepository settingsRepository,
-        OrchestratorPipeline pipeline,
-        IFilePermissionGate fileGate)
+    public ChatViewModel(ChatOrchestrator orchestrator)
     {
-        _chatService = chatService;
-        _onboardingService = onboardingService;
-        _projectService = projectService;
-        _scaffoldService = scaffoldService;
-        _settingsRepository = settingsRepository;
-        _pipeline = pipeline;
-        _fileGate = fileGate;
-
+        _orchestrator = orchestrator;
         _ = InitializeAsync();
     }
 
     private async Task InitializeAsync()
     {
-        if (await _onboardingService.IsOnboardingRequiredAsync())
-        {
-            AddAgentMessage("Hello! I'm Tower, your AI development agent. What would you like to build today?");
-        }
-        else
-        {
-            var projects = await _projectService.GetAllProjectsAsync();
-            var recent = projects.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
-            if (recent is not null)
-            {
-                ActiveProjectName = recent.Name;
-                _fileGate.SetProjectRoots(
-                    _scaffoldService.GetAgentFolderPath(recent.Name),
-                    recent.ProjectFolderPath);
-            }
-        }
+        var result = await _orchestrator.InitializeAsync();
+        if (result.InitialMessage is not null)
+            AddAgentMessage(result.InitialMessage);
+        if (result.ActiveProjectName is not null)
+            ActiveProjectName = result.ActiveProjectName;
     }
 
     [RelayCommand(CanExecute = nameof(CanSend))]
@@ -107,7 +71,7 @@ public partial class ChatViewModel : ObservableObject
             Timestamp = DateTime.Now.ToString("HH:mm")
         });
 
-        var result = await _chatService.SendAsync(text);
+        var result = await _orchestrator.SendAsync(text);
 
         foreach (var command in result.Commands)
             await HandleCommandAsync(command);
@@ -128,19 +92,10 @@ public partial class ChatViewModel : ObservableObject
         IsBusy = true;
         HasProjectConfirmPending = false;
 
-        var settings = await _settingsRepository.GetGlobalSettingsAsync();
-        var codeFolder = _scaffoldService.GetCodeFolderPath(_pendingProjectConfirm.ProjectName, settings.SourceControlRoot);
-        var project = await _projectService.CreateProjectAsync(_pendingProjectConfirm.ProjectName, codeFolder);
-
-        await _scaffoldService.CreateScaffoldAsync(_pendingProjectConfirm.ProjectName, settings.SourceControlRoot);
-
-        ActiveProjectName = project.Name;
-        _fileGate.SetProjectRoots(
-            _scaffoldService.GetAgentFolderPath(project.Name),
-            codeFolder);
-
+        var (projectName, message) = await _orchestrator.ConfirmProjectAsync(_pendingProjectConfirm);
+        ActiveProjectName = projectName;
         _pendingProjectConfirm = null;
-        AddAgentMessage($"Project \"{project.Name}\" created! Your agent folder and code folder are ready.");
+        AddAgentMessage(message);
         IsBusy = false;
     }
 
@@ -159,12 +114,11 @@ public partial class ChatViewModel : ObservableObject
     {
         if (_pendingPermissionRequest is null) return;
 
-        _fileGate.GrantReadAccess(_pendingPermissionRequest.Path);
-        HasPermissionRequestPending = false;
         var path = _pendingPermissionRequest.Path;
+        HasPermissionRequestPending = false;
         _pendingPermissionRequest = null;
 
-        var result = await _chatService.SendAsync($"[PATH_ACCESS_GRANTED:{{\"path\":\"{path}\"}}]");
+        var result = await _orchestrator.GrantPermissionAsync(path);
         foreach (var cmd in result.Commands) await HandleCommandAsync(cmd);
         if (!string.IsNullOrWhiteSpace(result.DisplayText))
             AddAgentMessage(result.DisplayText);
@@ -194,16 +148,14 @@ public partial class ChatViewModel : ObservableObject
                 HasProjectConfirmPending = true;
                 break;
 
-            case ReadFileCommand readFile:
-                await HandleReadFileAsync(readFile);
-                break;
-
-            case WriteFileCommand writeFile:
-                await HandleWriteFileAsync(writeFile);
-                break;
-
-            case ListDirectoryCommand listDir:
-                await HandleListDirectoryAsync(listDir);
+            case ReadFileCommand or WriteFileCommand or ListDirectoryCommand:
+                var fileResult = await _orchestrator.ExecuteFileCommandAsync(command);
+                if (fileResult is not null)
+                {
+                    foreach (var cmd in fileResult.Commands) await HandleCommandAsync(cmd);
+                    if (!string.IsNullOrWhiteSpace(fileResult.DisplayText))
+                        AddAgentMessage(fileResult.DisplayText);
+                }
                 break;
 
             case PathPermissionRequestCommand permissionRequest:
@@ -214,90 +166,6 @@ public partial class ChatViewModel : ObservableObject
         }
     }
 
-    // ── File operations (US-159–162) ─────────────────────────────────────────
-
-    private async Task HandleReadFileAsync(ReadFileCommand command)
-    {
-        if (!_fileGate.CanRead(command.Path))
-        {
-            var denied = await _chatService.SendAsync(
-                $"[READ_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"Access denied\"}}]");
-            if (!string.IsNullOrWhiteSpace(denied.DisplayText))
-                AddAgentMessage(denied.DisplayText);
-            return;
-        }
-
-        var response = await _pipeline.SendAsync(
-            ProviderRequest.Create(ProviderCapability.FileRead,
-                new Dictionary<string, object> { ["path"] = command.Path }));
-
-        var resultMsg = response.Success
-            ? $"[READ_FILE_RESULT:{{\"path\":\"{command.Path}\",\"content\":{JsonSerializer.Serialize((string)response.Result["content"])}}}]"
-            : $"[READ_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"{response.ErrorMessage}\"}}]";
-
-        var followUp = await _chatService.SendAsync(resultMsg);
-        foreach (var cmd in followUp.Commands) await HandleCommandAsync(cmd);
-        if (!string.IsNullOrWhiteSpace(followUp.DisplayText))
-            AddAgentMessage(followUp.DisplayText);
-    }
-
-    private async Task HandleWriteFileAsync(WriteFileCommand command)
-    {
-        if (!_fileGate.CanWrite(command.Path))
-        {
-            var denied = await _chatService.SendAsync(
-                $"[WRITE_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"Access denied — path outside project roots\"}}]");
-            if (!string.IsNullOrWhiteSpace(denied.DisplayText))
-                AddAgentMessage(denied.DisplayText);
-            return;
-        }
-
-        var response = await _pipeline.SendAsync(
-            ProviderRequest.Create(ProviderCapability.FileWrite,
-                new Dictionary<string, object> { ["path"] = command.Path, ["content"] = command.Content }));
-
-        var resultMsg = response.Success
-            ? $"[WRITE_FILE_RESULT:{{\"path\":\"{command.Path}\",\"success\":true}}]"
-            : $"[WRITE_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"{response.ErrorMessage}\"}}]";
-
-        var followUp = await _chatService.SendAsync(resultMsg);
-        foreach (var cmd in followUp.Commands) await HandleCommandAsync(cmd);
-        if (!string.IsNullOrWhiteSpace(followUp.DisplayText))
-            AddAgentMessage(followUp.DisplayText);
-    }
-
-    private async Task HandleListDirectoryAsync(ListDirectoryCommand command)
-    {
-        if (!_fileGate.CanRead(command.Path))
-        {
-            var denied = await _chatService.SendAsync(
-                $"[LIST_DIR_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"Access denied\"}}]");
-            if (!string.IsNullOrWhiteSpace(denied.DisplayText))
-                AddAgentMessage(denied.DisplayText);
-            return;
-        }
-
-        var response = await _pipeline.SendAsync(
-            ProviderRequest.Create(ProviderCapability.DirectoryList,
-                new Dictionary<string, object> { ["path"] = command.Path }));
-
-        string resultMsg;
-        if (response.Success)
-        {
-            var entries = (IReadOnlyList<string>)response.Result["entries"];
-            resultMsg = $"[LIST_DIR_RESULT:{{\"path\":\"{command.Path}\",\"entries\":{JsonSerializer.Serialize(entries)}}}]";
-        }
-        else
-        {
-            resultMsg = $"[LIST_DIR_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"{response.ErrorMessage}\"}}]";
-        }
-
-        var followUp = await _chatService.SendAsync(resultMsg);
-        foreach (var cmd in followUp.Commands) await HandleCommandAsync(cmd);
-        if (!string.IsNullOrWhiteSpace(followUp.DisplayText))
-            AddAgentMessage(followUp.DisplayText);
-    }
-
     // ── Folder picker (US-155) ───────────────────────────────────────────────
 
     private async Task HandleFolderSelectAsync(FolderSelectCommand command)
@@ -306,22 +174,14 @@ public partial class ChatViewModel : ObservableObject
 
         if (dialog.ShowDialog() != true)
         {
-            var cancelResult = await _chatService.SendAsync("[FOLDER_SELECT_RESULT:{\"cancelled\":true}]");
+            var cancelResult = await _orchestrator.HandleFolderCancelledAsync();
             if (!string.IsNullOrWhiteSpace(cancelResult.DisplayText))
                 AddAgentMessage(cancelResult.DisplayText);
             return;
         }
 
         var selectedPath = dialog.FolderName;
-
-        if (!await _onboardingService.IsSourceControlRootSetAsync())
-        {
-            var settings = await _settingsRepository.GetGlobalSettingsAsync();
-            settings.SourceControlRoot = selectedPath;
-            await _settingsRepository.SaveGlobalSettingsAsync(settings);
-        }
-
-        var continueResult = await _chatService.SendAsync($"[FOLDER_SELECT_RESULT:{{\"path\":\"{selectedPath}\"}}]");
+        var continueResult = await _orchestrator.HandleFolderSelectedAsync(selectedPath);
         foreach (var nestedCmd in continueResult.Commands)
             await HandleCommandAsync(nestedCmd);
         if (!string.IsNullOrWhiteSpace(continueResult.DisplayText))

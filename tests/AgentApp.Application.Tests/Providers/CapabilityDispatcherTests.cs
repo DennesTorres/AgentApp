@@ -6,7 +6,7 @@ using AgentApp.Infrastructure.ModelAccess;
 
 namespace AgentApp.Application.Tests.Providers;
 
-public class OrchestratorPipelineTests
+public class CapabilityDispatcherTests
 {
     private static AzureChatClientProvider CreateModelProvider() =>
         new(AzureClientFactory.BuildFromCredentials(new WindowsCredentialManager())!);
@@ -17,14 +17,14 @@ public class OrchestratorPipelineTests
         var provider = CreateModelProvider();
         var registry = new ProviderRegistry();
         registry.Register(provider);
-        var pipeline = new OrchestratorPipeline(registry);
+        var dispatcher = new CapabilityDispatcher(registry);
         var request = ProviderRequest.Create(ProviderCapability.ModelCall,
             new Dictionary<string, object>
             {
                 ["history"] = new List<ChatTurn> { new(ChatTurnRole.User, "Say hello.", DateTimeOffset.UtcNow) }
             });
 
-        var response = await pipeline.SendAsync(request);
+        var response = await dispatcher.SendAsync(request);
 
         Assert.NotNull(response);
         Assert.Equal(request.RequestId, response.RequestId);
@@ -34,9 +34,9 @@ public class OrchestratorPipelineTests
     public async Task SendAsync_NoProviderRegistered_ThrowsInvalidOperation()
     {
         var registry = new ProviderRegistry();
-        var pipeline = new OrchestratorPipeline(registry);
+        var dispatcher = new CapabilityDispatcher(registry);
         var request = ProviderRequest.Create(ProviderCapability.ModelCall);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => pipeline.SendAsync(request));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => dispatcher.SendAsync(request));
     }
 }

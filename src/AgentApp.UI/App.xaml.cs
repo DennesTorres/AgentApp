@@ -65,7 +65,7 @@ public partial class App : System.Windows.Application
             registry.Register(new DirectoryListProvider());
             return registry;
         });
-        services.AddSingleton<OrchestratorPipeline>();
+        services.AddSingleton<CapabilityDispatcher>();
         services.AddSingleton<IChatCommandParser, ChatCommandParser>();
 
         // Application
@@ -75,7 +75,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IOnboardingService>(sp => new OnboardingService(
             sp.GetRequiredService<IProjectRepository>(),
             sp.GetRequiredService<ISettingsRepository>()));
-        services.AddSingleton<ChatService>();
+        services.AddSingleton<ChatOrchestrator>();
 
         // UI
         services.AddSingleton<ChatViewModel>();
