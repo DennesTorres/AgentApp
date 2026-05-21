@@ -4,128 +4,96 @@
   <meta charset="UTF-8">
   <title>AgentApp — Epic 15/16 Architecture</title>
   <style>
-    body { background: #0f0f17; color: #d4d4d4; font-family: monospace; padding: 2rem; }
-    h1, h2 { color: #9cdcfe; }
-    pre { line-height: 1.4; font-size: 13px; }
+    body { background: #0f0f17; color: #d4d4d4; font-family: "Cascadia Code","Consolas",monospace; padding: 2rem; }
+    h1 { color: #9cdcfe; margin-bottom: 0.2rem; }
+    h2 { color: #569cd6; font-size: 0.9rem; font-weight: normal; margin-top: 0; margin-bottom: 1.5rem; }
+    h3 { color: #9cdcfe; margin-bottom: 0.5rem; }
+    pre { line-height: 1.5; font-size: 13px; }
     .ui  { color: #9cdcfe; }
     .app { color: #dcdcaa; }
     .inf { color: #ce9178; }
     .ext { color: #808080; }
-    .dim { color: #555; }
-    .label { color: #c586c0; font-size: 11px; }
+    .dim { color: #444; }
+    .arr { color: #569cd6; }
   </style>
 </head>
 <body>
 <h1>AgentApp — Epic 15 &amp; 16 Architecture</h1>
-<p>2D component map after Epic 16 US-164–168 (orchestrator boundary fix)</p>
+<h2>Updated after US-164–168 · orchestrator boundary fix · 2026-05-21</h2>
 
-<h2>Main Architecture</h2>
+<h3>Component Map</h3>
 <pre>
-<span class="dim">┌───────────────────────────────────────── UI Layer ──────────────────────────────────────────────┐</span>
-│                                                                                                   │
-│  <span class="ui">┌────────────────────────┐</span>   <span class="ui">┌──────────────────────┐</span>   <span class="ui">┌──────────────────────┐</span>             │
-│  <span class="ui">│   ChatViewModel        │</span>   <span class="ui">│ ProjectListViewModel │</span>   <span class="ui">│ApiKeySettingsViewModel│</span>             │
-│  <span class="ui">│                        │</span>   <span class="ui">│                      │</span>   <span class="ui">└──────────────────────┘</span>             │
-│  <span class="ui">│  SendMessageCommand    │</span>   <span class="ui">│  Projects list       │</span>                                           │
-│  <span class="ui">│  ConfirmProjectCommand │</span>   <span class="ui">│  Scaffold paths      │</span>   <span class="ui">┌──────────────────────┐</span>             │
-│  <span class="ui">│  ApprovePermission     │</span>   <span class="ui">└──────────────────────┘</span>   <span class="ui">│  MainWindowViewModel │</span>             │
-│  <span class="ui">│  FolderSelectDialog    │</span>                               <span class="ui">│  ActiveTab           │</span>             │
-│  <span class="ui">│                        │</span>                               <span class="ui">└──────────────────────┘</span>             │
-│  <span class="ui">│  1 dependency:         │</span>                                                                       │
-│  <span class="ui">│  ChatOrchestrator      │</span>                                                                       │
-│  <span class="ui">└──────────┬─────────────┘</span>                                                                       │
-│             │                                                                                     │
-<span class="dim">└────────────────────────────────────────────────────────────────────────────────────────────────</span>──┘
-             │
-<span class="dim">┌────────────────────────────────────── Application Layer ────────────────────────────────────────┐</span>
-│            │                                                                                      │
-│  <span class="app">┌──────────▼─────────────────────────────────────────────────┐</span>                               │
-│  <span class="app">│  ChatOrchestrator                                          │</span>                               │
-│  <span class="app">│                                                            │</span>                               │
-│  <span class="app">│  InitializeAsync()       → sets gate roots, returns        │</span>                               │
-│  <span class="app">│                            project name + initial message  │</span>                               │
-│  <span class="app">│  SendAsync(message)      → model call via CapabilityDispatch│</span>                               │
-│  <span class="app">│  ExecuteFileCommandAsync → gate check + file op + follow-up │</span>                               │
-│  <span class="app">│  ConfirmProjectAsync     → project + scaffold + gate setup  │</span>                               │
-│  <span class="app">│  GrantPermissionAsync    → gate.GrantReadAccess + follow-up │</span>                               │
-│  <span class="app">│  HandleFolderSelectedAsync → save root if needed + continue │</span>                               │
-│  <span class="app">│                                                            │</span>                               │
-│  <span class="app">│  owns: CapabilityDispatcher, IFilePermissionGate,          │</span>                               │
-│  <span class="app">│         IScaffoldService, ProjectService,                   │</span>                               │
-│  <span class="app">│         ISettingsRepository, IOnboardingService             │</span>                               │
-│  <span class="app">└────────────────────────────────────────────────────────────┘</span>                               │
-│            │                    │                    │                                            │
-│  <span class="app">┌──────────▼──────┐</span>   <span class="app">┌────────▼───────┐</span>   <span class="app">┌──────▼──────────┐</span>                          │
-│  <span class="app">│CapabilityDispatch│</span>   <span class="app">│ ProjectService │</span>   <span class="app">│  OnboardingService│</span>                          │
-│  <span class="app">│                 │</span>   <span class="app">│                │</span>   <span class="app">│                  │</span>                          │
-│  <span class="app">│ Routes requests │</span>   <span class="app">│ CRUD projects  │</span>   <span class="app">│IsOnboarding      │</span>                          │
-│  <span class="app">│ to providers    │</span>   <span class="app">│                │</span>   <span class="app">│IsSourceControlSet│</span>                          │
-│  <span class="app">└────────┬────────┘</span>   <span class="app">└────────────────┘</span>   <span class="app">└──────────────────┘</span>                          │
-│           │                                                                                       │
-│  <span class="app">┌──────────▼─────────────────────────────────────────────────┐</span>                               │
-│  <span class="app">│  IProviderRegistry / ProviderRegistry                      │</span>                               │
-│  <span class="app">│  AzureChatClientProvider  FileReadProvider                 │</span>                               │
-│  <span class="app">│  FileWriteProvider        DirectoryListProvider            │</span>                               │
-│  <span class="app">└────────────────────────────────────────────────────────────┘</span>                               │
-│                                                                                                   │
-│  <span class="app">┌─────────────────────┐</span>  <span class="app">┌─────────────────────┐</span>  <span class="app">┌──────────────────────┐</span>              │
-│  <span class="app">│  FileSessionGate    │</span>  <span class="app">│  ScaffoldService    │</span>  <span class="app">│  IChatCommandParser  │</span>              │
-│  <span class="app">│  CanRead / CanWrite │</span>  <span class="app">│  GetAgentFolderPath │</span>  <span class="app">│  ChatCommandParser   │</span>              │
-│  <span class="app">│  SetProjectRoots    │</span>  <span class="app">│  GetCodeFolderPath  │</span>  <span class="app">│  Parses [CMD:{...}]  │</span>              │
-│  <span class="app">│  GrantReadAccess    │</span>  <span class="app">│  CreateScaffoldAsync│</span>  <span class="app">│  tags from model text│</span>              │
-│  <span class="app">└─────────────────────┘</span>  <span class="app">└─────────────────────┘</span>  <span class="app">└──────────────────────┘</span>              │
-│                                                                                                   │
-<span class="dim">└───────────────────────────────────────────────────────────────────────────────────────────────</span>───┘
-             │                            │
-<span class="dim">┌────────────────────────────────────── Infrastructure Layer ─────────────────────────────────────┐</span>
-│            │                            │                                                         │
-│  <span class="inf">┌──────────▼──────────┐</span>   <span class="inf">┌──────────▼────────────────────────────────────────────┐</span>      │
-│  <span class="inf">│ AzureClientFactory  │</span>   <span class="inf">│ JsonProjectRepository  JsonSettingsRepository          │</span>      │
-│  <span class="inf">│ WindowsCredential   │</span>   <span class="inf">│ FileReadProvider       FileWriteProvider               │</span>      │
-│  <span class="inf">│ Manager             │</span>   <span class="inf">│ DirectoryListProvider  ScaffoldService                 │</span>      │
-│  <span class="inf">└──────────┬──────────┘</span>   <span class="inf">└───────────────────────────────────────────────────────┘</span>      │
-│             │                                                                                     │
-<span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────</span>────┘
-             │
-<span class="dim">┌────────────────────────────────────── External ────────────────────────────────────────────────┐</span>
-│  <span class="ext">┌──────────▼───────────────────────────────────────────┐</span>                                      │
-│  <span class="ext">│ Azure AI / Kimi-K2.5                                  │</span>                                      │
-│  <span class="ext">│ https://msdnfoundry.services.ai.azure.com/models      │</span>                                      │
-│  <span class="ext">└──────────────────────────────────────────────────────┘</span>                                      │
-<span class="dim">└──────────────────────────────────────────────────────────────────────────────────────────────</span>──┘
+<span class="dim">┌─────────────────────────────────────────── UI ─────────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>                                                                                                      <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">┌──────────────────────────┐</span>   <span class="ui">┌──────────────────────┐</span>   <span class="ui">┌──────────────────────┐</span>              <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│      ChatViewModel       │</span>   <span class="ui">│ ProjectListViewModel │</span>   <span class="ui">│  MainWindowViewModel │</span>              <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│                          │</span>   <span class="ui">│  project list        │</span>   <span class="ui">│  tab switching       │</span>              <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  send · confirm project  │</span>   <span class="ui">└──────────────────────┘</span>   <span class="ui">└──────────────────────┘</span>              <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  approve permission      │</span>                                                                        <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  folder select dialog    │</span>   <span class="ui">┌──────────────────────┐</span>                                          <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│                          │</span>   <span class="ui">│ ApiKeySettingsVM     │</span>                                          <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  1 dep → ChatOrchestrator│</span>   <span class="ui">└──────────────────────┘</span>                                          <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">└────────────┬─────────────┘</span>                                                                        <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
+             <span class="arr">│</span>
+<span class="dim">┌────────────────────────────────────── Application ──────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>            <span class="arr">▼</span>                                                                                         <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">┌─────────────────────────────────── ChatOrchestrator ────────────────────────────────────────┐</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  gateway for all chat operations · owns and coordinates every piece below                    │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│                                                                                              │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ┌──────────────────────┐  ┌─────────────────────┐  ┌──────────────────┐  ┌─────────────┐ │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  CapabilityDispatcher│  │  FileSessionGate    │  │  ScaffoldService │  │CommandParser│ │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  routes to providers │  │  path security gate │  │  folders + files │  │[CMD:{...}]  │ │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  └──────────┬───────────┘  └─────────────────────┘  └──────────────────┘  └─────────────┘ │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│             │                                                                               │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ┌──────────▼──────────────────────────┐  ┌─────────────────┐  ┌────────────────────────┐ │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  ProviderRegistry                   │  │  ProjectService │  │  OnboardingService     │ │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  AzureChatClientProvider            │  │  CRUD projects  │  │  ISettingsRepository   │ │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  FileRead · FileWrite · ListDir      │  └─────────────────┘  └────────────────────────┘ │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  └─────────────────────────────────────┘                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">└──────────────────────────────────────────────────────────────────────────────────────────────┘</span>   <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
+             <span class="arr">│</span>
+<span class="dim">┌───────────────────────────────────── Infrastructure ────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>            <span class="arr">▼</span>                                                                                         <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">┌────────────────────────────┐</span>   <span class="inf">┌──────────────────────────────────────────────────────────┐</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">│  AzureClientFactory        │</span>   <span class="inf">│  JsonProjectRepository · JsonSettingsRepository          │</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">│  WindowsCredentialManager  │</span>   <span class="inf">│  ScaffoldService · FileReadProvider                      │</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">└────────────────────────────┘</span>   <span class="inf">│  FileWriteProvider · DirectoryListProvider               │</span>  <span class="dim">│</span>
+<span class="dim">│</span>                                   <span class="inf">└──────────────────────────────────────────────────────────┘</span>  <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
+             <span class="arr">│</span>
+<span class="dim">┌────────────────────────────────────── External ─────────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>            <span class="arr">▼</span>                                                                                         <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ext">┌──────────────────────────────────────────────────────────────────────────────────────────┐</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ext">│  Azure AI · Kimi-K2.5 · msdnfoundry.services.ai.azure.com/models                        │</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ext">└──────────────────────────────────────────────────────────────────────────────────────────┘</span>  <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
 </pre>
 
-<h2>Command Dispatch — ViewModel ↔ Orchestrator</h2>
+<h3>Command Dispatch</h3>
 <pre>
-  <span class="ui">ChatViewModel</span>                          <span class="app">ChatOrchestrator</span>
+  <span class="ui">ChatViewModel</span>                                    <span class="app">ChatOrchestrator</span>
 
-  SendMessageAsync()
-    │─── SendAsync(text) ──────────────────────────────────────────────────────►│
-    │◄─── ChatServiceResult {DisplayText, Commands} ───────────────────────────│
-    │                                                                            │
-    │  HandleCommandAsync(cmd):                                                  │
-    │    FolderSelectCommand        → dialog → HandleFolderSelectedAsync(path) ─►│
-    │    ProjectConfirmCommand      → show UI (HasProjectConfirmPending=true)    │
-    │    ReadFile/WriteFile/ListDir → ExecuteFileCommandAsync(cmd) ─────────────►│
-    │                                 gate check + file op + follow-up SendAsync │
-    │                               ◄─ ChatServiceResult ───────────────────────│
-    │    PathPermissionRequest      → show UI (HasPermissionRequestPending=true) │
+  <span class="arr">─── SendAsync(text) ──────────────────────────────────────────────────────────►</span>
+  <span class="arr">◄── ChatServiceResult { DisplayText, Commands } ──────────────────────────────</span>
 
-  ConfirmProjectAsync()   [user click]
-    │─── ConfirmProjectAsync(cmd) ────────────────────────────────────────────►│
-    │    [creates project, scaffold, sets gate roots internally]                │
-    │◄─── (projectName, successMessage) ────────────────────────────────────────│
+  on each command returned:
 
-  ApprovePermissionAsync() [user click]
-    │─── GrantPermissionAsync(path) ──────────────────────────────────────────►│
-    │    [grants access, sends PATH_ACCESS_GRANTED to model internally]         │
-    │◄─── ChatServiceResult ────────────────────────────────────────────────────│
+    <span class="ui">FolderSelectCommand     </span><span class="arr">──► dialog (UI) ──► HandleFolderSelectedAsync(path) ─────►</span>
+    <span class="ui">ProjectConfirmCommand   </span><span class="arr">──► show confirm UI</span>
+      user confirms        <span class="arr">──► ConfirmProjectAsync(cmd) ──────────────────────────────►</span>
+                           <span class="arr">◄── (projectName, message) ───────────────────────────────</span>
+    <span class="ui">ReadFile / WriteFile /  </span>
+    <span class="ui">  ListDirectory         </span><span class="arr">──► ExecuteFileCommandAsync(cmd) ──────────────────────────►</span>
+                               <span class="app">gate check · file op · follow-up model call — all internal</span>
+                           <span class="arr">◄── ChatServiceResult ────────────────────────────────────</span>
+    <span class="ui">PathPermissionRequest   </span><span class="arr">──► show permission UI</span>
+      user approves        <span class="arr">──► GrantPermissionAsync(path) ────────────────────────────►</span>
+                               <span class="app">gate.GrantReadAccess · PATH_ACCESS_GRANTED — all internal</span>
+                           <span class="arr">◄── ChatServiceResult ────────────────────────────────────</span>
 
-  Legend:
-    <span class="ui">blue  </span>= UI layer (ViewModels, XAML)
-    <span class="app">yellow</span>= Application layer (orchestrators, services, parsers)
-    <span class="inf">orange</span>= Infrastructure layer (providers, repositories, file access)
-    <span class="ext">grey  </span>= External systems
+  <span class="dim">blue = UI · yellow = Application · orange = Infrastructure · grey = External</span>
 </pre>
 </body>
 </html>
