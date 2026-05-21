@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using AgentApp.Application.Chat;
 using AgentApp.Domain.Chat;
+using AgentApp.UI.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -9,7 +9,7 @@ namespace AgentApp.UI.ViewModels.Chat;
 
 public partial class ChatViewModel : ObservableObject
 {
-    private readonly ChatOrchestrator _orchestrator;
+    private readonly ChatPresenter _presenter;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendMessageCommand))]
@@ -42,15 +42,15 @@ public partial class ChatViewModel : ObservableObject
 
     public ObservableCollection<ChatTurnViewModel> Messages { get; } = [];
 
-    public ChatViewModel(ChatOrchestrator orchestrator)
+    public ChatViewModel(ChatPresenter presenter)
     {
-        _orchestrator = orchestrator;
+        _presenter = presenter;
         _ = InitializeAsync();
     }
 
     private async Task InitializeAsync()
     {
-        var result = await _orchestrator.InitializeAsync();
+        var result = await _presenter.InitializeAsync();
         if (result.InitialMessage is not null)
             AddAgentMessage(result.InitialMessage);
         if (result.ActiveProjectName is not null)
@@ -71,7 +71,7 @@ public partial class ChatViewModel : ObservableObject
             Timestamp = DateTime.Now.ToString("HH:mm")
         });
 
-        var result = await _orchestrator.SendAsync(text);
+        var result = await _presenter.SendAsync(text);
 
         foreach (var command in result.Commands)
             await HandleCommandAsync(command);
@@ -92,7 +92,7 @@ public partial class ChatViewModel : ObservableObject
         IsBusy = true;
         HasProjectConfirmPending = false;
 
-        var (projectName, message) = await _orchestrator.ConfirmProjectAsync(_pendingProjectConfirm);
+        var (projectName, message) = await _presenter.ConfirmProjectAsync(_pendingProjectConfirm);
         ActiveProjectName = projectName;
         _pendingProjectConfirm = null;
         AddAgentMessage(message);
@@ -118,7 +118,7 @@ public partial class ChatViewModel : ObservableObject
         HasPermissionRequestPending = false;
         _pendingPermissionRequest = null;
 
-        var result = await _orchestrator.GrantPermissionAsync(path);
+        var result = await _presenter.GrantPermissionAsync(path);
         foreach (var cmd in result.Commands) await HandleCommandAsync(cmd);
         if (!string.IsNullOrWhiteSpace(result.DisplayText))
             AddAgentMessage(result.DisplayText);
@@ -148,16 +148,6 @@ public partial class ChatViewModel : ObservableObject
                 HasProjectConfirmPending = true;
                 break;
 
-            case ReadFileCommand or WriteFileCommand or ListDirectoryCommand:
-                var fileResult = await _orchestrator.ExecuteFileCommandAsync(command);
-                if (fileResult is not null)
-                {
-                    foreach (var cmd in fileResult.Commands) await HandleCommandAsync(cmd);
-                    if (!string.IsNullOrWhiteSpace(fileResult.DisplayText))
-                        AddAgentMessage(fileResult.DisplayText);
-                }
-                break;
-
             case PathPermissionRequestCommand permissionRequest:
                 _pendingPermissionRequest = permissionRequest;
                 PendingPermissionSummary = $"Tower is requesting read access to:\n{permissionRequest.Path}\n\nReason: {permissionRequest.Reason}";
@@ -174,14 +164,14 @@ public partial class ChatViewModel : ObservableObject
 
         if (dialog.ShowDialog() != true)
         {
-            var cancelResult = await _orchestrator.HandleFolderCancelledAsync();
+            var cancelResult = await _presenter.HandleFolderCancelledAsync();
             if (!string.IsNullOrWhiteSpace(cancelResult.DisplayText))
                 AddAgentMessage(cancelResult.DisplayText);
             return;
         }
 
         var selectedPath = dialog.FolderName;
-        var continueResult = await _orchestrator.HandleFolderSelectedAsync(selectedPath);
+        var continueResult = await _presenter.HandleFolderSelectedAsync(selectedPath);
         foreach (var nestedCmd in continueResult.Commands)
             await HandleCommandAsync(nestedCmd);
         if (!string.IsNullOrWhiteSpace(continueResult.DisplayText))

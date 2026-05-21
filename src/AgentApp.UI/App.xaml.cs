@@ -14,6 +14,7 @@ using AgentApp.Infrastructure.ModelAccess;
 using AgentApp.Infrastructure.Persistence;
 using AgentApp.Infrastructure.ProjectSwitch;
 using AgentApp.Infrastructure.Scaffold;
+using AgentApp.UI.Services;
 using AgentApp.UI.ViewModels;
 using AgentApp.UI.ViewModels.Chat;
 using AgentApp.UI.ViewModels.Projects;
@@ -67,6 +68,8 @@ public partial class App : System.Windows.Application
         });
         services.AddSingleton<CapabilityDispatcher>();
         services.AddSingleton<IChatCommandParser, ChatCommandParser>();
+        services.AddSingleton<IResponsePreparationService, ResponsePreparationService>();
+        services.AddSingleton<IActionProviderRegistry, ActionProviderRegistry>();
 
         // Application
         services.AddSingleton<SessionService>();
@@ -78,6 +81,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ChatOrchestrator>();
 
         // UI
+        services.AddSingleton<ChatPresenter>();
         services.AddSingleton<ChatViewModel>();
         services.AddSingleton<ProjectListViewModel>();
         services.AddSingleton<ApiKeySettingsViewModel>();

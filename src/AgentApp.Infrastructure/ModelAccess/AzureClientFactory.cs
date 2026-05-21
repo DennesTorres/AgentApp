@@ -20,6 +20,9 @@ public static class AzureClientFactory
         return new ChatCompletionsClient(
                 new Uri(Endpoint),
                 new AzureKeyCredential(apiKey))
-            .AsIChatClient(ModelId);
+            .AsIChatClient(ModelId)
+            .AsBuilder()
+            .UseFunctionInvocation()
+            .Build();
     }
 }

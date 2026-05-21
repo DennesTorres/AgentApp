@@ -5,6 +5,7 @@ using AgentApp.Application.Providers;
 using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Providers;
+using Microsoft.Extensions.AI;
 
 namespace AgentApp.Application.Chat;
 
@@ -13,7 +14,8 @@ public record InitializeResult(string? ActiveProjectName, string? InitialMessage
 public class ChatOrchestrator
 {
     private readonly CapabilityDispatcher _dispatcher;
-    private readonly IChatCommandParser _commandParser;
+    private readonly IResponsePreparationService _responsePrep;
+    private readonly IActionProviderRegistry _actionRegistry;
     private readonly IFilePermissionGate _fileGate;
     private readonly IScaffoldService _scaffoldService;
     private readonly ProjectService _projectService;
@@ -23,7 +25,8 @@ public class ChatOrchestrator
 
     public ChatOrchestrator(
         CapabilityDispatcher dispatcher,
-        IChatCommandParser commandParser,
+        IResponsePreparationService responsePrep,
+        IActionProviderRegistry actionRegistry,
         IFilePermissionGate fileGate,
         IScaffoldService scaffoldService,
         ProjectService projectService,
@@ -31,7 +34,8 @@ public class ChatOrchestrator
         IOnboardingService onboardingService)
     {
         _dispatcher = dispatcher;
-        _commandParser = commandParser;
+        _responsePrep = responsePrep;
+        _actionRegistry = actionRegistry;
         _fileGate = fileGate;
         _scaffoldService = scaffoldService;
         _projectService = projectService;
@@ -65,8 +69,28 @@ public class ChatOrchestrator
     {
         _history.Add(new ChatTurn(ChatTurnRole.User, userMessage, DateTimeOffset.UtcNow));
 
+        var tools = new List<AITool>
+        {
+            AIFunctionFactory.Create(
+                (string path) => ReadFileToolAsync(path),
+                "read_file",
+                "Read the contents of a file at the given path. Returns the file content or an access-denied error."),
+            AIFunctionFactory.Create(
+                (string path, string content) => WriteFileToolAsync(path, content),
+                "write_file",
+                "Write content to a file at the given path. Returns success or an error."),
+            AIFunctionFactory.Create(
+                (string path) => ListDirectoryToolAsync(path),
+                "list_directory",
+                "List files and subdirectories in a directory. Returns a JSON array of entry names.")
+        };
+
         var request = ProviderRequest.Create(ProviderCapability.ModelCall,
-            new Dictionary<string, object> { ["history"] = _history.ToList() });
+            new Dictionary<string, object>
+            {
+                ["history"] = _history.ToList(),
+                ["tools"] = tools
+            });
 
         var response = await _dispatcher.SendAsync(request, cancellationToken);
 
@@ -74,78 +98,60 @@ public class ChatOrchestrator
             return new ChatServiceResult($"Error: {response.ErrorMessage}", []);
 
         var rawText = (string)response.Result["text"];
-        var (displayText, commands) = _commandParser.Parse(rawText);
+        var (displayText, commands) = _responsePrep.Prepare(rawText);
+        var unhandledCommands = await _actionRegistry.DispatchAsync(commands, cancellationToken);
 
         _history.Add(new ChatTurn(ChatTurnRole.Assistant, rawText, DateTimeOffset.UtcNow));
-        return new ChatServiceResult(displayText, commands);
+        return new ChatServiceResult(displayText, unhandledCommands);
     }
 
-    // ── File command execution (US-164) ───────────────────────────────────────
+    // ── Native file tools (US-173) ────────────────────────────────────────────
 
-    public Task<ChatServiceResult?> ExecuteFileCommandAsync(ChatCommand command)
+    private async Task<string> ReadFileToolAsync(string path)
     {
-        return command switch
-        {
-            ReadFileCommand read => ExecuteReadFileAsync(read).ContinueWith(t => (ChatServiceResult?)t.Result),
-            WriteFileCommand write => ExecuteWriteFileAsync(write).ContinueWith(t => (ChatServiceResult?)t.Result),
-            ListDirectoryCommand list => ExecuteListDirectoryAsync(list).ContinueWith(t => (ChatServiceResult?)t.Result),
-            _ => Task.FromResult<ChatServiceResult?>(null)
-        };
-    }
-
-    private async Task<ChatServiceResult> ExecuteReadFileAsync(ReadFileCommand command)
-    {
-        if (!_fileGate.CanRead(command.Path))
-            return await SendAsync($"[READ_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"Access denied\"}}]");
+        if (!_fileGate.CanRead(path))
+            return JsonSerializer.Serialize(new { error = "Access denied", path });
 
         var response = await _dispatcher.SendAsync(
             ProviderRequest.Create(ProviderCapability.FileRead,
-                new Dictionary<string, object> { ["path"] = command.Path }));
+                new Dictionary<string, object> { ["path"] = path }));
 
-        var resultMsg = response.Success
-            ? $"[READ_FILE_RESULT:{{\"path\":\"{command.Path}\",\"content\":{JsonSerializer.Serialize((string)response.Result["content"])}}}]"
-            : $"[READ_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"{response.ErrorMessage}\"}}]";
+        if (!response.Success)
+            return JsonSerializer.Serialize(new { error = response.ErrorMessage, path });
 
-        return await SendAsync(resultMsg);
+        var content = (string)response.Result["content"];
+        // Filter 1 — project-owned token reduction (pass-through for now; future: truncate/summarize)
+        return content;
     }
 
-    private async Task<ChatServiceResult> ExecuteWriteFileAsync(WriteFileCommand command)
+    private async Task<string> WriteFileToolAsync(string path, string content)
     {
-        if (!_fileGate.CanWrite(command.Path))
-            return await SendAsync($"[WRITE_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"Access denied — path outside project roots\"}}]");
+        if (!_fileGate.CanWrite(path))
+            return JsonSerializer.Serialize(new { error = "Access denied — path outside project roots", path });
 
         var response = await _dispatcher.SendAsync(
             ProviderRequest.Create(ProviderCapability.FileWrite,
-                new Dictionary<string, object> { ["path"] = command.Path, ["content"] = command.Content }));
+                new Dictionary<string, object> { ["path"] = path, ["content"] = content }));
 
-        var resultMsg = response.Success
-            ? $"[WRITE_FILE_RESULT:{{\"path\":\"{command.Path}\",\"success\":true}}]"
-            : $"[WRITE_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"{response.ErrorMessage}\"}}]";
-
-        return await SendAsync(resultMsg);
+        return response.Success
+            ? JsonSerializer.Serialize(new { success = true, path })
+            : JsonSerializer.Serialize(new { error = response.ErrorMessage, path });
     }
 
-    private async Task<ChatServiceResult> ExecuteListDirectoryAsync(ListDirectoryCommand command)
+    private async Task<string> ListDirectoryToolAsync(string path)
     {
-        if (!_fileGate.CanRead(command.Path))
-            return await SendAsync($"[LIST_DIR_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"Access denied\"}}]");
+        if (!_fileGate.CanRead(path))
+            return JsonSerializer.Serialize(new { error = "Access denied", path });
 
         var response = await _dispatcher.SendAsync(
             ProviderRequest.Create(ProviderCapability.DirectoryList,
-                new Dictionary<string, object> { ["path"] = command.Path }));
+                new Dictionary<string, object> { ["path"] = path }));
 
-        string resultMsg;
-        if (response.Success)
-        {
-            var entries = (IReadOnlyList<string>)response.Result["entries"];
-            resultMsg = $"[LIST_DIR_RESULT:{{\"path\":\"{command.Path}\",\"entries\":{JsonSerializer.Serialize(entries)}}}]";
-        }
-        else
-        {
-            resultMsg = $"[LIST_DIR_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"{response.ErrorMessage}\"}}]";
-        }
+        if (!response.Success)
+            return JsonSerializer.Serialize(new { error = response.ErrorMessage, path });
 
-        return await SendAsync(resultMsg);
+        var entries = (IReadOnlyList<string>)response.Result["entries"];
+        return JsonSerializer.Serialize(entries);
     }
 
     // ── Project confirmation (US-165) ─────────────────────────────────────────

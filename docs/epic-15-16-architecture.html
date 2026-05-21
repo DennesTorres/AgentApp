@@ -19,7 +19,7 @@
 </head>
 <body>
 <h1>AgentApp — Epic 15 &amp; 16 Architecture</h1>
-<h2>Updated after US-164–168 · orchestrator boundary fix · 2026-05-21</h2>
+<h2>Updated after US-169–173 · ChatPresenter · native tool-calling · ActionProvider registry · 2026-05-21</h2>
 
 <h3>Component Map</h3>
 <pre>
@@ -32,66 +32,94 @@
 <span class="dim">│</span>  <span class="ui">│  approve permission      │</span>                                                                        <span class="dim">│</span>
 <span class="dim">│</span>  <span class="ui">│  folder select dialog    │</span>   <span class="ui">┌──────────────────────┐</span>                                          <span class="dim">│</span>
 <span class="dim">│</span>  <span class="ui">│                          │</span>   <span class="ui">│ ApiKeySettingsVM     │</span>                                          <span class="dim">│</span>
-<span class="dim">│</span>  <span class="ui">│  1 dep → ChatOrchestrator│</span>   <span class="ui">└──────────────────────┘</span>                                          <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  1 dep → ChatPresenter   │</span>   <span class="ui">└──────────────────────┘</span>                                          <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">└────────────┬─────────────┘</span>                                                                        <span class="dim">│</span>
+<span class="dim">│</span>               <span class="arr">│</span>                                                                                      <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">┌────────────▼─────────────┐</span>                                                                        <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│      ChatPresenter       │</span>  pass-through today · owns message display format definition           <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  future: markdown render │</span>  future: code block formatting · typing indicators                    <span class="dim">│</span>
 <span class="dim">│</span>  <span class="ui">└────────────┬─────────────┘</span>                                                                        <span class="dim">│</span>
 <span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
-             <span class="arr">│</span>
+               <span class="arr">│</span>
 <span class="dim">┌────────────────────────────────────── Application ──────────────────────────────────────────────────┐</span>
-<span class="dim">│</span>            <span class="arr">▼</span>                                                                                         <span class="dim">│</span>
+<span class="dim">│</span>              <span class="arr">▼</span>                                                                                        <span class="dim">│</span>
 <span class="dim">│</span>  <span class="app">┌─────────────────────────────────── ChatOrchestrator ────────────────────────────────────────┐</span>   <span class="dim">│</span>
 <span class="dim">│</span>  <span class="app">│  gateway for all chat operations · owns and coordinates every piece below                    │</span>   <span class="dim">│</span>
 <span class="dim">│</span>  <span class="app">│                                                                                              │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  ┌──────────────────────┐  ┌─────────────────────┐  ┌──────────────────┐  ┌─────────────┐ │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  │  CapabilityDispatcher│  │  FileSessionGate    │  │  ScaffoldService │  │CommandParser│ │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  │  routes to providers │  │  path security gate │  │  folders + files │  │[CMD:{...}]  │ │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  └──────────┬───────────┘  └─────────────────────┘  └──────────────────┘  └─────────────┘ │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│             │                                                                               │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  ┌──────────▼──────────────────────────┐  ┌─────────────────┐  ┌────────────────────────┐ │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  │  ProviderRegistry                   │  │  ProjectService │  │  OnboardingService     │ │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  │  AzureChatClientProvider            │  │  CRUD projects  │  │  ISettingsRepository   │ │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  │  FileRead · FileWrite · ListDir      │  └─────────────────┘  └────────────────────────┘ │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  └─────────────────────────────────────┘                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ┌───────────────────────┐  ┌────────────────────────┐  ┌──────────────────────────────┐  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │ ResponsePreparation   │  │ IActionProviderRegistry│  │ CapabilityDispatcher         │  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  wraps CommandParser  │  │  extensible command    │  │  routes to providers         │  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  strips markers       │  │  dispatch registry     │  │                              │  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  returns clean text   │  │  no providers yet      │  │                              │  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  └───────────────────────┘  └────────────────────────┘  └──────────────┬───────────────┘  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│                                                                          │                  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ┌──────────────────────────────────── AIFunction tools ─────────────┐  │                  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  read_file · write_file · list_directory                          │  │                  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  registered per-call in ChatOptions.Tools                        │  │                  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  FunctionInvokingChatClient middleware handles invocation loop    │  │                  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  each wrapper: gate check → provider call → Filter 1 (pass-thru) │  │                  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  └───────────────────────────────────────────────────────────────────┘  │                  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│                                                                          │                  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ┌────────────────────────┐  ┌─────────────────────┐  ┌────────────────▼───────────────┐  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  FileSessionGate       │  │  ProjectService      │  │  ProviderRegistry              │  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  path security gate    │  │  OnboardingService   │  │  AzureChatClientProvider       │  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  CanRead · CanWrite    │  │  ScaffoldService     │  │  FileReadProvider              │  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │  GrantReadAccess       │  └─────────────────────┘  │  FileWriteProvider             │  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  └────────────────────────┘                            │  DirectoryListProvider         │  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│                                                         └────────────────────────────────┘  │</span>   <span class="dim">│</span>
 <span class="dim">│</span>  <span class="app">└──────────────────────────────────────────────────────────────────────────────────────────────┘</span>   <span class="dim">│</span>
 <span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
-             <span class="arr">│</span>
+               <span class="arr">│</span>
 <span class="dim">┌───────────────────────────────────── Infrastructure ────────────────────────────────────────────────┐</span>
-<span class="dim">│</span>            <span class="arr">▼</span>                                                                                         <span class="dim">│</span>
+<span class="dim">│</span>              <span class="arr">▼</span>                                                                                        <span class="dim">│</span>
 <span class="dim">│</span>  <span class="inf">┌────────────────────────────┐</span>   <span class="inf">┌──────────────────────────────────────────────────────────┐</span>  <span class="dim">│</span>
 <span class="dim">│</span>  <span class="inf">│  AzureClientFactory        │</span>   <span class="inf">│  JsonProjectRepository · JsonSettingsRepository          │</span>  <span class="dim">│</span>
 <span class="dim">│</span>  <span class="inf">│  WindowsCredentialManager  │</span>   <span class="inf">│  ScaffoldService · FileReadProvider                      │</span>  <span class="dim">│</span>
-<span class="dim">│</span>  <span class="inf">└────────────────────────────┘</span>   <span class="inf">│  FileWriteProvider · DirectoryListProvider               │</span>  <span class="dim">│</span>
-<span class="dim">│</span>                                   <span class="inf">└──────────────────────────────────────────────────────────┘</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">│  UseFunctionInvocation()   │</span>   <span class="inf">│  FileWriteProvider · DirectoryListProvider               │</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">└────────────────────────────┘</span>   <span class="inf">└──────────────────────────────────────────────────────────┘</span>  <span class="dim">│</span>
 <span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
-             <span class="arr">│</span>
+               <span class="arr">│</span>
 <span class="dim">┌────────────────────────────────────── External ─────────────────────────────────────────────────────┐</span>
-<span class="dim">│</span>            <span class="arr">▼</span>                                                                                         <span class="dim">│</span>
+<span class="dim">│</span>              <span class="arr">▼</span>                                                                                        <span class="dim">│</span>
 <span class="dim">│</span>  <span class="ext">┌──────────────────────────────────────────────────────────────────────────────────────────┐</span>  <span class="dim">│</span>
 <span class="dim">│</span>  <span class="ext">│  Azure AI · Kimi-K2.5 · msdnfoundry.services.ai.azure.com/models                        │</span>  <span class="dim">│</span>
 <span class="dim">│</span>  <span class="ext">└──────────────────────────────────────────────────────────────────────────────────────────┘</span>  <span class="dim">│</span>
 <span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
 </pre>
 
-<h3>Command Dispatch</h3>
+<h3>Message Flow &amp; Command Dispatch</h3>
 <pre>
-  <span class="ui">ChatViewModel</span>                                    <span class="app">ChatOrchestrator</span>
+  <span class="ui">ChatViewModel</span>     <span class="ui">ChatPresenter</span>                        <span class="app">ChatOrchestrator</span>
 
-  <span class="arr">─── SendAsync(text) ──────────────────────────────────────────────────────────►</span>
-  <span class="arr">◄── ChatServiceResult { DisplayText, Commands } ──────────────────────────────</span>
+  <span class="arr">─── SendAsync ────────────────────────────────────────────────────────────────►</span>
+                                               <span class="app">build AIFunction tools (read_file,</span>
+                                               <span class="app">write_file, list_directory)</span>
+                                               <span class="arr">─── model call (with tools) ─────►</span>
+                                                   <span class="ext">model may call tools N times</span>
+                                                   <span class="ext">↕ FunctionInvokingChatClient</span>
+                                                   <span class="ext">loop until final text response</span>
+                                               <span class="arr">◄── final text ──────────────────</span>
+                                               <span class="app">ResponsePreparationService.Prepare()</span>
+                                               <span class="app">  → strip markers → clean text</span>
+                                               <span class="app">  → extract ChatCommands</span>
+                                               <span class="app">ActionProviderRegistry.DispatchAsync()</span>
+                                               <span class="app">  → handle orchestrator commands</span>
+                                               <span class="app">  → return unhandled to ViewModel</span>
+  <span class="arr">◄── ChatServiceResult { DisplayText, UnhandledCommands } ─────────────────────</span>
 
-  on each command returned:
+  on each unhandled command:
 
-    <span class="ui">FolderSelectCommand     </span><span class="arr">──► dialog (UI) ──► HandleFolderSelectedAsync(path) ─────►</span>
+    <span class="ui">FolderSelectCommand     </span><span class="arr">──► dialog (UI) ──► HandleFolderSelectedAsync(path) ────►</span>
     <span class="ui">ProjectConfirmCommand   </span><span class="arr">──► show confirm UI</span>
-      user confirms        <span class="arr">──► ConfirmProjectAsync(cmd) ──────────────────────────────►</span>
-                           <span class="arr">◄── (projectName, message) ───────────────────────────────</span>
-    <span class="ui">ReadFile / WriteFile /  </span>
-    <span class="ui">  ListDirectory         </span><span class="arr">──► ExecuteFileCommandAsync(cmd) ──────────────────────────►</span>
-                               <span class="app">gate check · file op · follow-up model call — all internal</span>
-                           <span class="arr">◄── ChatServiceResult ────────────────────────────────────</span>
+      user confirms        <span class="arr">──► ConfirmProjectAsync(cmd) ───────────────────────────►</span>
+                           <span class="arr">◄── (projectName, message) ──────────────────────────────</span>
     <span class="ui">PathPermissionRequest   </span><span class="arr">──► show permission UI</span>
-      user approves        <span class="arr">──► GrantPermissionAsync(path) ────────────────────────────►</span>
-                               <span class="app">gate.GrantReadAccess · PATH_ACCESS_GRANTED — all internal</span>
-                           <span class="arr">◄── ChatServiceResult ────────────────────────────────────</span>
+      user approves        <span class="arr">──► GrantPermissionAsync(path) ─────────────────────────►</span>
+                               <span class="app">gate.GrantReadAccess · PATH_ACCESS_GRANTED — internal</span>
+                           <span class="arr">◄── ChatServiceResult ───────────────────────────────────</span>
+
+  <span class="dim">note: read_file / write_file / list_directory are no longer ChatCommands —</span>
+  <span class="dim">they are resolved inside the model call loop via native tool-calling</span>
 
   <span class="dim">blue = UI · yellow = Application · orange = Infrastructure · grey = External</span>
 </pre>

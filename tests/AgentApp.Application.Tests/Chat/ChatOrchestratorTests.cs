@@ -17,9 +17,9 @@ public class ChatOrchestratorTests
     {
         var chatClient = AzureClientFactory.BuildFromCredentials(new WindowsCredentialManager())!;
         var provider = new AzureChatClientProvider(chatClient);
-        var registry = new ProviderRegistry();
-        registry.Register(provider);
-        var dispatcher = new CapabilityDispatcher(registry);
+        var providerRegistry = new ProviderRegistry();
+        providerRegistry.Register(provider);
+        var dispatcher = new CapabilityDispatcher(providerRegistry);
 
         var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
         Directory.CreateDirectory(tempDir);
@@ -27,9 +27,14 @@ public class ChatOrchestratorTests
         var projectRepo = new JsonProjectRepository(tempDir);
         var settingsRepo = new JsonSettingsRepository(tempDir);
 
+        var commandParser = new ChatCommandParser();
+        var responsePrep = new ResponsePreparationService(commandParser);
+        var actionRegistry = new ActionProviderRegistry();
+
         return new ChatOrchestrator(
             dispatcher,
-            new ChatCommandParser(),
+            responsePrep,
+            actionRegistry,
             new FileSessionGate(),
             new ScaffoldService(),
             new ProjectService(projectRepo, settingsRepo),
