@@ -45,33 +45,43 @@
 <span class="dim">│</span>              <span class="arr">▼</span>                                                                                        <span class="dim">│</span>
 <span class="dim">│</span>  <span class="app">┌─────────────────────────────────── ChatOrchestrator.SendAsync ──────────────────────────────┐</span>   <span class="dim">│</span>
 <span class="dim">│</span>  <span class="app">│                                                                                              │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  [1] history.Add(userMessage)                                                                │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│       │                                                                                      │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  [2]  ▼  build AIFunction tools ──────────────────────────────────────────────────────────  │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          read_file · write_file · list_directory                                            │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          each closure: FileSessionGate.CanRead/CanWrite → CapabilityDispatcher              │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│                        → FileRead/FileWrite/DirList provider → Filter 1 → JSON result       │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│       │                                                                                      │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  [3]  ▼  CapabilityDispatcher.SendAsync(history, tools) ──────────────────►  Azure AI  ◄──  │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          FunctionInvokingChatClient middleware                                               │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          ┌─ tool call loop (0 to N) ────────────────────────────────────────────────────┐   │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          │  model requests tool → middleware invokes closure [2] → result injected back  │   │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          └────────────────────────────────────────────────────────────────────────────┘   │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          model produces final text response                                                  │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│       │                                                                                      │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  [4]  ▼  ResponsePreparationService.Prepare(rawText)                                        │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          IChatCommandParser · strip [MARKER:{...}] · extract ChatCommand[]                  │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          → (displayText, commands[])                                                        │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│       │                                                                                      │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  [5]  ▼  ActionProviderRegistry.DispatchAsync(commands)                                     │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          IActionProvider.HandleAsync() for matched commands                                 │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          → unhandledCommands[] (surfaced to ViewModel)                                      │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│       │                                                                                      │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  [6]  ▼  history.Add(assistantMessage)                                                      │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│          return ChatServiceResult(displayText, unhandledCommands)                           │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ┌──────┐                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  history.Add(userMessage)                                                     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  ┌─────────────────────────────────────────────────────────────────────┐     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │ core │     │  AgentContextService.GetSystemMessage()                              │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  loops: NoProjectProvider · ActiveProjectProvider                   │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │         · ExecutionStateProvider → system message                   │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     └─────────────────────────────────────────────────────────────────────┘     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  ┌─────────────────────────────────────────────────────────────────────┐     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  AIFunction tools — for each registered tool:                       │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │    read_file · write_file · list_directory                          │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │    closure: FileSessionGate gate-check → provider → JSON result     │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     └─────────────────────────────────────────────────────────────────────┘     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  ┌─────────────────────────────────────────────────────────────────────┐     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  IChatClient.CompleteAsync(messages, tools) ──────────► Azure AI    │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  ┌ ─ model returns tool call ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐  │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │   CapabilityDispatcher → provider → result injected back          │  │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘  │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     └─────────────────────────────────────────────────────────────────────┘     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  extract JSON tail from message → ChatCommand[]                               │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  history.Add(assistantMessage)                                                │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  ActionProviderRegistry.DispatchAsync(commands) → unhandledCommands[]         │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      └──►  ┌─────────────────────────────────────────────────────────────────────┐     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  └──────┘     │  ResponsePreparationService.Prepare(humanText)                      │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│               │  formats human-readable portion → displayText                       │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│               └─────────────────────────────────────────────────────────────────────┘     │</span>   <span class="dim">│</span>
 <span class="dim">│</span>  <span class="app">│                                                                                              │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  ── support services ──────────────────────────────────────────────────────────────────────  │</span>   <span class="dim">│</span>
-<span class="dim">│</span>  <span class="app">│  FileSessionGate · ProjectService · OnboardingService · ScaffoldService                     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  return ChatServiceResult(displayText, unhandledCommands)                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│                                                                                              │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ── support services ──────────────────────────────────────────────────────────────────  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  FileSessionGate · ProjectService · OnboardingService · ScaffoldService                    │</span>   <span class="dim">│</span>
 <span class="dim">│</span>  <span class="app">│  ProviderRegistry: AzureChatClientProvider · FileReadProvider · FileWriteProvider · DirList  │</span>   <span class="dim">│</span>
 <span class="dim">│</span>  <span class="app">└──────────────────────────────────────────────────────────────────────────────────────────────┘</span>   <span class="dim">│</span>
 <span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
