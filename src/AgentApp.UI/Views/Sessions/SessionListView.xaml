@@ -1,0 +1,89 @@
+<UserControl x:Class="AgentApp.UI.Views.Sessions.SessionListView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="600" d:DesignWidth="800">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- US-188/US-019: Filter toolbar -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
+            <TextBlock Text="Filter by Project ID:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#888" />
+            <TextBox Text="{Binding FilterProjectId, UpdateSourceTrigger=PropertyChanged}"
+                     Width="220" MinHeight="30" Margin="0,0,6,0" />
+            <Button Content="Apply" Command="{Binding ApplyFilterCommand}" MinWidth="70" MinHeight="30" Margin="0,0,4,0" />
+            <Button Content="Clear" Command="{Binding ClearFilterCommand}" MinWidth="70" MinHeight="30" />
+        </StackPanel>
+
+        <!-- US-184: Create session -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button Content="New Session" Command="{Binding CreateSessionCommand}" MinWidth="110" MinHeight="30" />
+        </StackPanel>
+
+        <!-- US-185: Session list -->
+        <ListBox Grid.Row="2"
+                 ItemsSource="{Binding Sessions}"
+                 SelectedItem="{Binding SelectedSession}"
+                 BorderThickness="1"
+                 Margin="0,0,0,8">
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="4,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                            <TextBlock FontSize="11" Opacity="0.6">
+                                <Run Text="Project: " />
+                                <Run Text="{Binding ProjectLabel}" />
+                                <Run Text="  Created: " />
+                                <Run Text="{Binding CreatedAt}" />
+                            </TextBlock>
+                        </StackPanel>
+                        <!-- US-187: Archive -->
+                        <Button Grid.Column="3" Content="Archive"
+                                Command="{Binding DataContext.ArchiveSessionCommand,
+                                    RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                CommandParameter="{Binding}"
+                                MinWidth="70" MinHeight="26" Margin="4,0,0,0" />
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <!-- US-186: Rename selected session -->
+        <Grid Grid.Row="3" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Rename selected:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#888" />
+            <TextBox Grid.Column="1" Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
+                     MinHeight="30" Margin="0,0,6,0" />
+            <Button Grid.Column="2" Content="Rename" Command="{Binding RenameSessionCommand}"
+                    MinWidth="80" MinHeight="30" />
+        </Grid>
+
+        <!-- Status -->
+        <TextBlock Grid.Row="4" Text="{Binding StatusMessage}"
+                   Foreground="#A0C4FF" FontSize="12" Opacity="0.8" />
+    </Grid>
+</UserControl>

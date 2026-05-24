@@ -8,4 +8,6 @@ public class GlobalSettings
     public bool RequireUserConfirmationForFindingsExtraction { get; set; } = false;
     public int TokenThresholdForContextReset { get; set; } = 80000;
     public string SourceControlRoot { get; set; } = string.Empty;
+    public string AgentAvatarLetter { get; set; } = "T";
+    public string UserAvatarLetter { get; set; } = "U";
 }

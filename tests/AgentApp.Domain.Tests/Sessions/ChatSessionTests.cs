@@ -54,4 +54,42 @@ public class ChatSessionTests
 
         Assert.Throws<InvalidOperationException>(() => session.LinkToProject(Guid.NewGuid()));
     }
+
+    [Fact]
+    public void CreateStandalone_HasDefaultName()
+    {
+        var session = ChatSession.CreateStandalone();
+        Assert.False(string.IsNullOrWhiteSpace(session.Name));
+    }
+
+    [Fact]
+    public void Rename_UpdatesName()
+    {
+        var session = ChatSession.CreateStandalone();
+        session.Rename("My Session");
+        Assert.Equal("My Session", session.Name);
+    }
+
+    [Fact]
+    public void Rename_EmptyName_Throws()
+    {
+        var session = ChatSession.CreateStandalone();
+        Assert.Throws<ArgumentException>(() => session.Rename(""));
+    }
+
+    [Fact]
+    public void Archive_SetsIsArchivedTrue()
+    {
+        var session = ChatSession.CreateStandalone();
+        session.Archive();
+        Assert.True(session.IsArchived);
+    }
+
+    [Fact]
+    public void Archive_AlreadyArchived_Throws()
+    {
+        var session = ChatSession.CreateStandalone();
+        session.Archive();
+        Assert.Throws<InvalidOperationException>(() => session.Archive());
+    }
 }

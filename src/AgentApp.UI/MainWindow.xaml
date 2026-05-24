@@ -6,6 +6,8 @@
         xmlns:mah="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         xmlns:chat="clr-namespace:AgentApp.UI.Views.Chat"
         xmlns:projects="clr-namespace:AgentApp.UI.Views.Projects"
+        xmlns:sessions="clr-namespace:AgentApp.UI.Views.Sessions"
+        xmlns:board="clr-namespace:AgentApp.UI.Views.Board"
         xmlns:settings="clr-namespace:AgentApp.UI.Views.Settings"
         mc:Ignorable="d"
         Title="{Binding Title}"
@@ -18,8 +20,21 @@
         <TabItem Header="Projects">
             <projects:ProjectListView DataContext="{Binding ProjectListViewModel}" />
         </TabItem>
+        <TabItem Header="Sessions">
+            <sessions:SessionListView DataContext="{Binding SessionListViewModel}" />
+        </TabItem>
+        <TabItem Header="Board">
+            <board:BoardView DataContext="{Binding BoardViewModel}" />
+        </TabItem>
         <TabItem Header="Settings">
-            <settings:ApiKeySettingsView DataContext="{Binding ApiKeySettingsViewModel}" />
+            <TabControl>
+                <TabItem Header="Global">
+                    <settings:GlobalSettingsView DataContext="{Binding GlobalSettingsViewModel}" />
+                </TabItem>
+                <TabItem Header="Project">
+                    <settings:ProjectSettingsView DataContext="{Binding ProjectSettingsViewModel}" />
+                </TabItem>
+            </TabControl>
         </TabItem>
     </TabControl>
 </mah:MetroWindow>

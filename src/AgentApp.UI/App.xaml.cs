@@ -5,6 +5,7 @@ using AgentApp.Application.FileSystem;
 using AgentApp.Application.Onboarding;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
+using AgentApp.Application.Scheduling;
 using AgentApp.Application.Sessions;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Providers;
@@ -16,8 +17,10 @@ using AgentApp.Infrastructure.ProjectSwitch;
 using AgentApp.Infrastructure.Scaffold;
 using AgentApp.UI.Services;
 using AgentApp.UI.ViewModels;
+using AgentApp.UI.ViewModels.Board;
 using AgentApp.UI.ViewModels.Chat;
 using AgentApp.UI.ViewModels.Projects;
+using AgentApp.UI.ViewModels.Sessions;
 using AgentApp.UI.ViewModels.Settings;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -48,6 +51,10 @@ public partial class App : System.Windows.Application
 
         services.AddSingleton<IProjectRepository>(_ => new JsonProjectRepository(appDataFolder));
         services.AddSingleton<ISettingsRepository>(_ => new JsonSettingsRepository(appDataFolder));
+        services.AddSingleton<IProjectSettingsRepository>(_ => new JsonProjectSettingsRepository(appDataFolder));
+        services.AddSingleton<ISessionRepository>(_ => new JsonSessionRepository(appDataFolder));
+        services.AddSingleton<IKnowledgeRecordRepository>(_ => new JsonKnowledgeRecordRepository(appDataFolder));
+        services.AddSingleton<IScheduleRepository>(_ => new JsonScheduleRepository(appDataFolder));
         services.AddSingleton<IProjectSwitchHandler, NullProjectSwitchHandler>();
         services.AddSingleton<ICredentialService, WindowsCredentialManager>();
         services.AddSingleton<IScaffoldService, ScaffoldService>();
@@ -75,6 +82,8 @@ public partial class App : System.Windows.Application
         services.AddSingleton<SessionService>();
         services.AddSingleton<ProjectService>();
         services.AddSingleton<ProjectSwitchService>();
+        services.AddSingleton<BoardService>();
+        services.AddSingleton<SchedulerService>();
         services.AddSingleton<IOnboardingService>(sp => new OnboardingService(
             sp.GetRequiredService<IProjectRepository>(),
             sp.GetRequiredService<ISettingsRepository>()));
@@ -84,6 +93,10 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ChatPresenter>();
         services.AddSingleton<ChatViewModel>();
         services.AddSingleton<ProjectListViewModel>();
+        services.AddSingleton<SessionListViewModel>();
+        services.AddSingleton<BoardViewModel>();
+        services.AddSingleton<GlobalSettingsViewModel>();
+        services.AddSingleton<ProjectSettingsViewModel>();
         services.AddSingleton<ApiKeySettingsViewModel>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>();

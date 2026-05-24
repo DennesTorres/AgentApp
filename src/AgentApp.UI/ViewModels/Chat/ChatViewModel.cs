@@ -22,6 +22,10 @@ public partial class ChatViewModel : ObservableObject
     [ObservableProperty]
     private string _activeProjectName = string.Empty;
 
+    // US-134: Current execution state (wired to state machine when Epic 17 merges)
+    [ObservableProperty]
+    private string _currentState = "Chat";
+
     // Project confirmation (US-153)
     private ProjectConfirmCommand? _pendingProjectConfirm;
 

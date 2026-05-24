@@ -1,5 +1,7 @@
+using AgentApp.UI.ViewModels.Board;
 using AgentApp.UI.ViewModels.Chat;
 using AgentApp.UI.ViewModels.Projects;
+using AgentApp.UI.ViewModels.Sessions;
 using AgentApp.UI.ViewModels.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -12,14 +14,24 @@ public partial class MainWindowViewModel : ObservableObject
 
     public ChatViewModel ChatViewModel { get; }
     public ProjectListViewModel ProjectListViewModel { get; }
-    public ApiKeySettingsViewModel ApiKeySettingsViewModel { get; }
+    public SessionListViewModel SessionListViewModel { get; }
+    public BoardViewModel BoardViewModel { get; }
+    public GlobalSettingsViewModel GlobalSettingsViewModel { get; }
+    public ProjectSettingsViewModel ProjectSettingsViewModel { get; }
 
-    public MainWindowViewModel(ChatViewModel chatViewModel,
+    public MainWindowViewModel(
+        ChatViewModel chatViewModel,
         ProjectListViewModel projectListViewModel,
-        ApiKeySettingsViewModel apiKeySettingsViewModel)
+        SessionListViewModel sessionListViewModel,
+        BoardViewModel boardViewModel,
+        GlobalSettingsViewModel globalSettingsViewModel,
+        ProjectSettingsViewModel projectSettingsViewModel)
     {
         ChatViewModel = chatViewModel;
         ProjectListViewModel = projectListViewModel;
-        ApiKeySettingsViewModel = apiKeySettingsViewModel;
+        SessionListViewModel = sessionListViewModel;
+        BoardViewModel = boardViewModel;
+        GlobalSettingsViewModel = globalSettingsViewModel;
+        ProjectSettingsViewModel = projectSettingsViewModel;
     }
 }
