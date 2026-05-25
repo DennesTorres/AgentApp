@@ -110,8 +110,8 @@
                                                 </Style>
                                             </Image.Style>
                                         </Image>
-                                        <!-- C-031: Person silhouette (when no custom image) -->
-                                        <Viewbox Margin="4">
+                                        <!-- C-044: Shape avatar (when no custom image) — shape chosen by AgentAvatarShape -->
+                                        <Viewbox Margin="3">
                                             <Viewbox.Style>
                                                 <Style TargetType="Viewbox">
                                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -124,11 +124,10 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Viewbox.Style>
-                                            <Canvas Width="24" Height="24">
-                                                <Ellipse Canvas.Left="8" Canvas.Top="1" Width="8" Height="8" Fill="White" Opacity="0.9" />
-                                                <Path Fill="White" Opacity="0.9"
-                                                      Data="M 2,22 C 2,16 6,13.5 12,13.5 C 18,13.5 22,16 22,22 Z" />
-                                            </Canvas>
+                                            <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                                  Data="{Binding DataContext.AgentAvatarShape,
+                                                         RelativeSource={RelativeSource AncestorType=ListBox},
+                                                         Converter={StaticResource ShapeToPathDataConverter}}" />
                                         </Viewbox>
                                     </Grid>
                                 </Border>
@@ -166,7 +165,8 @@
                                                 </Style>
                                             </Image.Style>
                                         </Image>
-                                        <Viewbox Margin="4">
+                                        <!-- C-044: Shape avatar (user) -->
+                                        <Viewbox Margin="3">
                                             <Viewbox.Style>
                                                 <Style TargetType="Viewbox">
                                                     <Setter Property="Visibility" Value="Collapsed" />
@@ -179,11 +179,10 @@
                                                     </Style.Triggers>
                                                 </Style>
                                             </Viewbox.Style>
-                                            <Canvas Width="24" Height="24">
-                                                <Ellipse Canvas.Left="8" Canvas.Top="1" Width="8" Height="8" Fill="White" Opacity="0.9" />
-                                                <Path Fill="White" Opacity="0.9"
-                                                      Data="M 2,22 C 2,16 6,13.5 12,13.5 C 18,13.5 22,16 22,22 Z" />
-                                            </Canvas>
+                                            <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                                  Data="{Binding DataContext.UserAvatarShape,
+                                                         RelativeSource={RelativeSource AncestorType=ListBox},
+                                                         Converter={StaticResource ShapeToPathDataConverter}}" />
                                         </Viewbox>
                                     </Grid>
                                 </Border>

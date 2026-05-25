@@ -17,4 +17,7 @@ public class GlobalSettings
     // C-031: built-in color preset ("blue"|"purple"|"teal"|"amber")
     public string AgentAvatarPreset { get; set; } = "blue";
     public string UserAvatarPreset { get; set; } = "teal";
+    // C-044: built-in shape preset ("person"|"robot"|"star"|"cat")
+    public string AgentAvatarShape { get; set; } = "person";
+    public string UserAvatarShape { get; set; } = "person";
 }

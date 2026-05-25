@@ -50,6 +50,13 @@ public partial class ChatViewModel : ObservableObject
     [ObservableProperty]
     private string _userAvatarColor = "#4A7A4A";
 
+    // C-044: avatar shape preset
+    [ObservableProperty]
+    private string _agentAvatarShape = "person";
+
+    [ObservableProperty]
+    private string _userAvatarShape = "person";
+
     // Project confirmation (US-153)
     private ProjectConfirmCommand? _pendingProjectConfirm;
 
@@ -85,12 +92,9 @@ public partial class ChatViewModel : ObservableObject
         UserAvatarImagePath = settings.UserAvatarImagePath;
         AgentAvatarColor = PresetColor(settings.AgentAvatarPreset, "#5B8AF5");
         UserAvatarColor = PresetColor(settings.UserAvatarPreset, "#4A7A4A");
-
-        var result = await _presenter.InitializeAsync();
-        if (result.InitialMessage is not null)
-            AddAgentMessage(result.InitialMessage);
-        if (result.ActiveProjectName is not null)
-            ActiveProjectName = result.ActiveProjectName;
+        AgentAvatarShape = string.IsNullOrWhiteSpace(settings.AgentAvatarShape) ? "person" : settings.AgentAvatarShape;
+        UserAvatarShape = string.IsNullOrWhiteSpace(settings.UserAvatarShape) ? "person" : settings.UserAvatarShape;
+        // C-040: greeting is shown via LoadSessionAsync for empty sessions — not here
     }
 
     [RelayCommand(CanExecute = nameof(CanSend))]

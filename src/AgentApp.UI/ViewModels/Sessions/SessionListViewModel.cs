@@ -27,18 +27,41 @@ public partial class SessionListViewModel : ObservableObject
 
     public ObservableCollection<SessionItemViewModel> Sessions { get; } = [];
 
+    // C-042: suppress ClearSession during collection refresh
+    public bool IsRefreshing { get; private set; }
+
     public SessionListViewModel(SessionService sessionService)
     {
         _sessionService = sessionService;
         // C-023: refresh list when any session is created (e.g. from Chat tab)
         _sessionService.SessionCreated += (_, _) => _ = RefreshAsync();
+        // C-041: update item name directly when session renamed (no full refresh needed)
+        _sessionService.SessionRenamed += OnSessionRenamed;
         _ = LoadSessionsAsync();
+    }
+
+    // C-041: update the matching SessionItemViewModel name without full refresh
+    private void OnSessionRenamed(object? sender, (Guid sessionId, string newName) e)
+    {
+        var item = Sessions.FirstOrDefault(s => s.Id == e.sessionId);
+        if (item is not null)
+            item.Name = e.newName;
     }
 
     private async Task LoadSessionsAsync()
     {
         var sessions = await _sessionService.GetAllActiveAsync();
         ApplyToCollection(sessions);
+
+        // C-040: auto-select most recent session; create one if none exist
+        if (Sessions.Count > 0)
+            SelectedSession = Sessions[0];
+        else
+        {
+            var session = await _sessionService.StartStandaloneSessionAsync();
+            // SessionCreated event will call RefreshAsync which repopulates; select it
+            SelectedSession = Sessions.FirstOrDefault(s => s.Id == session.Id);
+        }
     }
 
     private void ApplyToCollection(IReadOnlyList<ChatSession> sessions)
@@ -119,8 +142,14 @@ public partial class SessionListViewModel : ObservableObject
 
     private async Task RefreshAsync()
     {
+        // C-042: preserve selection across refresh — Sessions.Clear() nullifies SelectedSession via ListBox binding
+        var selectedId = SelectedSession?.Id;
+        IsRefreshing = true;
         var sessions = await _sessionService.GetAllActiveAsync();
         ApplyToCollection(sessions);
+        if (selectedId.HasValue)
+            SelectedSession = Sessions.FirstOrDefault(s => s.Id == selectedId);
+        IsRefreshing = false;
     }
 }
 

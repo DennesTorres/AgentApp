@@ -12,6 +12,7 @@
             <converters:BooleanInverseConverter x:Key="BooleanInverseConverter" />
             <converters:FilePathToImageSourceConverter x:Key="FilePathToImageSourceConverter" />
             <converters:StringToBrushConverter x:Key="StringToBrushConverter" />
+            <converters:ShapeToPathDataConverter x:Key="ShapeToPathDataConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

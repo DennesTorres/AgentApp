@@ -109,7 +109,7 @@
             <TextBlock Text="Avatars" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
 
             <!-- Agent avatar -->
-            <TextBlock Text="Agent — built-in color preset:" Foreground="#888" Margin="0,0,0,6" />
+            <TextBlock Text="Agent — color:" Foreground="#888" Margin="0,0,0,6" />
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                 <!-- Blue -->
                 <Button Command="{Binding SelectAgentPresetCommand}" CommandParameter="blue"
@@ -196,7 +196,103 @@
                     </Button.Template>
                 </Button>
             </StackPanel>
-            <TextBlock Text="Agent avatar custom image (PNG/JPG — overrides preset):" Foreground="#888" Margin="0,0,0,4" />
+            <!-- C-044: Agent shape selector -->
+            <TextBlock Text="Agent — shape:" Foreground="#888" Margin="0,0,0,6" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <Button Command="{Binding SelectAgentShapeCommand}" CommandParameter="person"
+                        Width="44" Height="44" Margin="0,0,8,0" ToolTip="Person" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="40" Height="40" CornerRadius="4" Background="#2D2D44" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AgentAvatarShape}" Value="person">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Viewbox Margin="6">
+                                    <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                          Data="M 8,1 A 4,4 0 1 1 16,1 A 4,4 0 1 1 8,1 Z M 2,22 C 2,16 6,13 12,13 C 18,13 22,16 22,22 Z" />
+                                </Viewbox>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button Command="{Binding SelectAgentShapeCommand}" CommandParameter="robot"
+                        Width="44" Height="44" Margin="0,0,8,0" ToolTip="Robot" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="40" Height="40" CornerRadius="4" Background="#2D2D44" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AgentAvatarShape}" Value="robot">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Viewbox Margin="6">
+                                    <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                          Data="M 11,0 L 13,0 L 13,3 L 11,3 Z M 6,3 L 18,3 L 18,13 L 6,13 Z M 8.5,6.5 A 1.5,1.5 0 1 1 11.5,6.5 A 1.5,1.5 0 1 1 8.5,6.5 Z M 12.5,6.5 A 1.5,1.5 0 1 1 15.5,6.5 A 1.5,1.5 0 1 1 12.5,6.5 Z M 3,15 L 21,15 L 21,22 L 3,22 Z" />
+                                </Viewbox>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button Command="{Binding SelectAgentShapeCommand}" CommandParameter="star"
+                        Width="44" Height="44" Margin="0,0,8,0" ToolTip="Star" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="40" Height="40" CornerRadius="4" Background="#2D2D44" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AgentAvatarShape}" Value="star">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Viewbox Margin="6">
+                                    <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                          Data="M 12,1 L 14.9,9.2 L 23.5,9.2 L 16.7,14.7 L 19.1,23 L 12,17.8 L 4.9,23 L 7.3,14.7 L 0.5,9.2 L 9.1,9.2 Z" />
+                                </Viewbox>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button Command="{Binding SelectAgentShapeCommand}" CommandParameter="cat"
+                        Width="44" Height="44" ToolTip="Cat" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="40" Height="40" CornerRadius="4" Background="#2D2D44" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AgentAvatarShape}" Value="cat">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Viewbox Margin="6">
+                                    <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                          Data="M 3,10 L 7,2 L 10,8 C 10.7,7.7 11.3,7.5 12,7.5 C 12.7,7.5 13.3,7.7 14,8 L 17,2 L 21,10 C 22,13 20,17 12,18 C 4,17 2,13 3,10 Z M 5,20 L 4,24 L 20,24 L 19,20 C 15,23 9,23 5,20 Z" />
+                                </Viewbox>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+            <TextBlock Text="Agent avatar custom image (PNG/JPG — overrides shape):" Foreground="#888" Margin="0,0,0,4" />
             <Grid Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -209,7 +305,7 @@
             </Grid>
 
             <!-- User avatar -->
-            <TextBlock Text="User — built-in color preset:" Foreground="#888" Margin="0,0,0,6" />
+            <TextBlock Text="User — color:" Foreground="#888" Margin="0,0,0,6" />
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                 <Button Command="{Binding SelectUserPresetCommand}" CommandParameter="blue"
                         Width="36" Height="36" Margin="0,0,8,0" ToolTip="Blue" Padding="0">
@@ -292,7 +388,103 @@
                     </Button.Template>
                 </Button>
             </StackPanel>
-            <TextBlock Text="User avatar custom image (PNG/JPG — overrides preset):" Foreground="#888" Margin="0,0,0,4" />
+            <!-- C-044: User shape selector -->
+            <TextBlock Text="User — shape:" Foreground="#888" Margin="0,0,0,6" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <Button Command="{Binding SelectUserShapeCommand}" CommandParameter="person"
+                        Width="44" Height="44" Margin="0,0,8,0" ToolTip="Person" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="40" Height="40" CornerRadius="4" Background="#2D2D44" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UserAvatarShape}" Value="person">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Viewbox Margin="6">
+                                    <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                          Data="M 8,1 A 4,4 0 1 1 16,1 A 4,4 0 1 1 8,1 Z M 2,22 C 2,16 6,13 12,13 C 18,13 22,16 22,22 Z" />
+                                </Viewbox>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button Command="{Binding SelectUserShapeCommand}" CommandParameter="robot"
+                        Width="44" Height="44" Margin="0,0,8,0" ToolTip="Robot" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="40" Height="40" CornerRadius="4" Background="#2D2D44" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UserAvatarShape}" Value="robot">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Viewbox Margin="6">
+                                    <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                          Data="M 11,0 L 13,0 L 13,3 L 11,3 Z M 6,3 L 18,3 L 18,13 L 6,13 Z M 8.5,6.5 A 1.5,1.5 0 1 1 11.5,6.5 A 1.5,1.5 0 1 1 8.5,6.5 Z M 12.5,6.5 A 1.5,1.5 0 1 1 15.5,6.5 A 1.5,1.5 0 1 1 12.5,6.5 Z M 3,15 L 21,15 L 21,22 L 3,22 Z" />
+                                </Viewbox>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button Command="{Binding SelectUserShapeCommand}" CommandParameter="star"
+                        Width="44" Height="44" Margin="0,0,8,0" ToolTip="Star" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="40" Height="40" CornerRadius="4" Background="#2D2D44" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UserAvatarShape}" Value="star">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Viewbox Margin="6">
+                                    <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                          Data="M 12,1 L 14.9,9.2 L 23.5,9.2 L 16.7,14.7 L 19.1,23 L 12,17.8 L 4.9,23 L 7.3,14.7 L 0.5,9.2 L 9.1,9.2 Z" />
+                                </Viewbox>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button Command="{Binding SelectUserShapeCommand}" CommandParameter="cat"
+                        Width="44" Height="44" ToolTip="Cat" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="40" Height="40" CornerRadius="4" Background="#2D2D44" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UserAvatarShape}" Value="cat">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <Viewbox Margin="6">
+                                    <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                          Data="M 3,10 L 7,2 L 10,8 C 10.7,7.7 11.3,7.5 12,7.5 C 12.7,7.5 13.3,7.7 14,8 L 17,2 L 21,10 C 22,13 20,17 12,18 C 4,17 2,13 3,10 Z M 5,20 L 4,24 L 20,24 L 19,20 C 15,23 9,23 5,20 Z" />
+                                </Viewbox>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+            <TextBlock Text="User avatar custom image (PNG/JPG — overrides shape):" Foreground="#888" Margin="0,0,0,4" />
             <Grid Margin="0,0,0,20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

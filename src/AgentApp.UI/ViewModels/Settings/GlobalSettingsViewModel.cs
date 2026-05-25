@@ -28,6 +28,9 @@ public partial class GlobalSettingsViewModel : ObservableObject
     [ObservableProperty] private string _userAvatarImagePath = string.Empty;
     [ObservableProperty] private string _agentAvatarPreset = "blue";
     [ObservableProperty] private string _userAvatarPreset = "teal";
+    // C-044: shape preset ("person"|"robot"|"star"|"cat")
+    [ObservableProperty] private string _agentAvatarShape = "person";
+    [ObservableProperty] private string _userAvatarShape = "person";
 
     // C-026: API key status indicator
     [ObservableProperty] private bool _isApiKeySet;
@@ -47,8 +50,10 @@ public partial class GlobalSettingsViewModel : ObservableObject
     {
         var settings = await _settingsRepository.GetGlobalSettingsAsync();
 
-        // C-038: no default — sourceControlRoot must never be defaulted (BUSINESS-RULES.md)
-        RootProjectFolderPath = settings.RootProjectFolderPath;
+        // C-038/C-043: no default — sourceControlRoot must never be defaulted (BUSINESS-RULES.md)
+        // C-043: clear old hardcoded "C:\GitHub" default written by C-028 fix
+        var storedRoot = settings.RootProjectFolderPath;
+        RootProjectFolderPath = storedRoot is @"C:\GitHub" ? string.Empty : storedRoot;
 
         // C-027: model URL with default
         ModelUrl = string.IsNullOrWhiteSpace(settings.ModelUrl)
@@ -71,6 +76,8 @@ public partial class GlobalSettingsViewModel : ObservableObject
         UserAvatarImagePath = settings.UserAvatarImagePath;
         AgentAvatarPreset = string.IsNullOrWhiteSpace(settings.AgentAvatarPreset) ? "blue" : settings.AgentAvatarPreset;
         UserAvatarPreset = string.IsNullOrWhiteSpace(settings.UserAvatarPreset) ? "teal" : settings.UserAvatarPreset;
+        AgentAvatarShape = string.IsNullOrWhiteSpace(settings.AgentAvatarShape) ? "person" : settings.AgentAvatarShape;
+        UserAvatarShape = string.IsNullOrWhiteSpace(settings.UserAvatarShape) ? "person" : settings.UserAvatarShape;
     }
 
     [RelayCommand]
@@ -100,6 +107,8 @@ public partial class GlobalSettingsViewModel : ObservableObject
             UserAvatarImagePath = UserAvatarImagePath.Trim(),
             AgentAvatarPreset = AgentAvatarPreset,
             UserAvatarPreset = UserAvatarPreset,
+            AgentAvatarShape = AgentAvatarShape,
+            UserAvatarShape = UserAvatarShape,
         };
         await _settingsRepository.SaveGlobalSettingsAsync(settings);
         StatusMessage = "Settings saved.";
@@ -130,10 +139,17 @@ public partial class GlobalSettingsViewModel : ObservableObject
             UserAvatarImagePath = dlg.FileName;
     }
 
-    // C-039: Preset selection commands
+    // C-039: Color preset selection commands
     [RelayCommand]
     private void SelectAgentPreset(string preset) => AgentAvatarPreset = preset;
 
     [RelayCommand]
     private void SelectUserPreset(string preset) => UserAvatarPreset = preset;
+
+    // C-044: Shape preset selection commands
+    [RelayCommand]
+    private void SelectAgentShape(string shape) => AgentAvatarShape = shape;
+
+    [RelayCommand]
+    private void SelectUserShape(string shape) => UserAvatarShape = shape;
 }

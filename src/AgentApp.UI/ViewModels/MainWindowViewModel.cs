@@ -40,9 +40,11 @@ public partial class MainWindowViewModel : ObservableObject
         ProjectSettingsViewModel = projectSettingsViewModel;
 
         // C-029/C-033: when user selects (or deselects) a session in sidebar
+        // C-042: suppress ClearSession/LoadSession during RefreshAsync (collection rebuild)
         sessionListViewModel.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName != nameof(SessionListViewModel.SelectedSession)) return;
+            if (sessionListViewModel.IsRefreshing) return;
             if (sessionListViewModel.SelectedSession is { } sel)
                 _ = chatViewModel.LoadSessionAsync(sel.Id, sel.Name);
             else

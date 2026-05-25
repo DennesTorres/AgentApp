@@ -10,6 +10,8 @@ public class SessionService
     private readonly ISessionMessageRepository _messageRepository;
 
     public event EventHandler<ChatSession>? SessionCreated;
+    // C-041: fired after any rename so sidebar can update without full refresh
+    public event EventHandler<(Guid sessionId, string newName)>? SessionRenamed;
 
     public SessionService(ISessionRepository repository, ISessionMessageRepository messageRepository)
     {
@@ -58,6 +60,7 @@ public class SessionService
             ?? throw new DomainNotFoundException($"Session '{sessionId}' not found.");
         session.Rename(newName);
         await _repository.SaveAsync(session);
+        SessionRenamed?.Invoke(this, (sessionId, newName));
     }
 
     public async Task ArchiveAsync(Guid sessionId)
