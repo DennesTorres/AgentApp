@@ -1,36 +1,59 @@
 using AgentApp.Application.Agent;
 using AgentApp.Application.Chat;
+using AgentApp.Application.FileSystem;
 using AgentApp.Application.Onboarding;
+using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
 using AgentApp.Application.SystemMessage;
 using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
+using AgentApp.Infrastructure.Persistence;
+using AgentApp.Infrastructure.Scaffold;
 
 namespace AgentApp.Application.Tests.Chat;
 
 public class ChatServiceAgentContextTests
 {
-    private static (ChatService service, FakeModelProvider fakeModel, AgentContextService contextService)
+    private static (ChatOrchestrator orchestrator, FakeModelProvider fakeModel, AgentContextService contextService)
         BuildWithFake(string modelResponse, ISystemMessageProvider[]? providers = null)
     {
         var fakeModel = new FakeModelProvider(modelResponse);
         var registry = new ProviderRegistry();
         registry.Register(fakeModel);
-        var pipeline = new OrchestratorPipeline(registry);
+        var dispatcher = new CapabilityDispatcher(registry);
+
+        var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(tempDir);
+        var projectRepo = new JsonProjectRepository(tempDir);
+        var settingsRepo = new JsonSettingsRepository(tempDir);
+
+        var commandParser = new ChatCommandParser();
+        var responsePrep = new ResponsePreparationService(commandParser);
+        var actionRegistry = new ActionProviderRegistry();
         var contextService = new AgentContextService();
-        var service = new ChatService(pipeline, new ChatCommandParser(),
-            providers ?? [], contextService);
-        return (service, fakeModel, contextService);
+
+        var orchestrator = new ChatOrchestrator(
+            dispatcher,
+            responsePrep,
+            actionRegistry,
+            new FileSessionGate(),
+            new ScaffoldService(),
+            new ProjectService(projectRepo, settingsRepo),
+            settingsRepo,
+            new OnboardingService(projectRepo, settingsRepo),
+            contextService,
+            providers ?? []);
+        return (orchestrator, fakeModel, contextService);
     }
 
     [Fact]
     public async Task StateTransition_UpdatesAgentContext()
     {
-        var (service, _, ctx) = BuildWithFake(
+        var (orchestrator, _, ctx) = BuildWithFake(
             "Switching mode. [STATE_TRANSITION:{\"mode\":\"implementing\"}]");
 
-        await service.SendAsync("Start implementing");
+        await orchestrator.SendAsync("Start implementing");
 
         Assert.Equal("implementing", ctx.GetCurrent().ConversationState.Mode);
     }
@@ -38,10 +61,10 @@ public class ChatServiceAgentContextTests
     [Fact]
     public async Task StateTransitionCommand_NotReturnedToViewModel()
     {
-        var (service, _, _) = BuildWithFake(
+        var (orchestrator, _, _) = BuildWithFake(
             "Done. [STATE_TRANSITION:{\"mode\":\"testing\"}]");
 
-        var result = await service.SendAsync("Switch state");
+        var result = await orchestrator.SendAsync("Switch state");
 
         Assert.DoesNotContain(result.Commands, c => c is StateTransitionCommand);
     }
@@ -49,10 +72,10 @@ public class ChatServiceAgentContextTests
     [Fact]
     public async Task SystemMessageProviders_PassedToModel()
     {
-        var (service, fakeModel, _) = BuildWithFake("OK",
+        var (orchestrator, fakeModel, _) = BuildWithFake("OK",
             [new NoProjectProvider()]);
 
-        await service.SendAsync("Hello");
+        await orchestrator.SendAsync("Hello");
 
         Assert.NotEmpty(fakeModel.LastSystemMessage);
         Assert.Contains("Tower", fakeModel.LastSystemMessage);
@@ -61,9 +84,9 @@ public class ChatServiceAgentContextTests
     [Fact]
     public async Task NoProviders_EmptySystemMessage()
     {
-        var (service, fakeModel, _) = BuildWithFake("OK");
+        var (orchestrator, fakeModel, _) = BuildWithFake("OK");
 
-        await service.SendAsync("Hello");
+        await orchestrator.SendAsync("Hello");
 
         Assert.Empty(fakeModel.LastSystemMessage);
     }
@@ -71,11 +94,11 @@ public class ChatServiceAgentContextTests
     [Fact]
     public async Task MultipleTransitions_UpdatesToLatest()
     {
-        var (service, _, ctx) = BuildWithFake(
+        var (orchestrator, _, ctx) = BuildWithFake(
             "OK [STATE_TRANSITION:{\"mode\":\"testing\"}]");
 
-        await service.SendAsync("First");
-        await service.SendAsync("Second");
+        await orchestrator.SendAsync("First");
+        await orchestrator.SendAsync("Second");
 
         Assert.Equal("testing", ctx.GetCurrent().ConversationState.Mode);
     }

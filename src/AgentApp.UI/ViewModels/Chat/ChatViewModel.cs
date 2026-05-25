@@ -1,11 +1,8 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
-using AgentApp.Application.Chat;
-using AgentApp.Application.Providers;
-using AgentApp.Application.Projects;
+using AgentApp.Application.Sessions;
 using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
-using AgentApp.Domain.Providers;
+using AgentApp.UI.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Win32;
@@ -14,14 +11,9 @@ namespace AgentApp.UI.ViewModels.Chat;
 
 public partial class ChatViewModel : ObservableObject
 {
-    private readonly ChatService _chatService;
-    private readonly IOnboardingService _onboardingService;
-    private readonly ProjectService _projectService;
-    private readonly IScaffoldService _scaffoldService;
+    private readonly ChatPresenter _presenter;
+    private readonly SessionService _sessionService;
     private readonly ISettingsRepository _settingsRepository;
-    private readonly OrchestratorPipeline _pipeline;
-    private readonly IFilePermissionGate _fileGate;
-    private readonly IAgentContextService _contextService;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendMessageCommand))]
@@ -33,6 +25,39 @@ public partial class ChatViewModel : ObservableObject
 
     [ObservableProperty]
     private string _activeProjectName = string.Empty;
+
+    [ObservableProperty]
+    private string _currentState = "Chat";
+
+    // C-023/C-024: Session tracking
+    [ObservableProperty]
+    private string _currentSessionName = "New Session";
+
+    private Guid? _currentSessionId;
+    private bool _isFirstMessage = true;
+    private bool _shouldRenameOnFirstMessage;
+    // C-045: guard against stale concurrent loads
+    private int _loadGeneration;
+
+    // C-025/C-031: Avatar configuration
+    [ObservableProperty]
+    private string _agentAvatarImagePath = string.Empty;
+
+    [ObservableProperty]
+    private string _userAvatarImagePath = string.Empty;
+
+    [ObservableProperty]
+    private string _agentAvatarColor = "#5B8AF5";   // C-031: preset color
+
+    [ObservableProperty]
+    private string _userAvatarColor = "#4A7A4A";
+
+    // C-044: avatar shape preset
+    [ObservableProperty]
+    private string _agentAvatarShape = "person";
+
+    [ObservableProperty]
+    private string _userAvatarShape = "person";
 
     // Project confirmation (US-153)
     private ProjectConfirmCommand? _pendingProjectConfirm;
@@ -54,46 +79,24 @@ public partial class ChatViewModel : ObservableObject
 
     public ObservableCollection<ChatTurnViewModel> Messages { get; } = [];
 
-    public ChatViewModel(
-        ChatService chatService,
-        IOnboardingService onboardingService,
-        ProjectService projectService,
-        IScaffoldService scaffoldService,
-        ISettingsRepository settingsRepository,
-        OrchestratorPipeline pipeline,
-        IFilePermissionGate fileGate,
-        IAgentContextService contextService)
+    public ChatViewModel(ChatPresenter presenter, SessionService sessionService, ISettingsRepository settingsRepository)
     {
-        _chatService = chatService;
-        _onboardingService = onboardingService;
-        _projectService = projectService;
-        _scaffoldService = scaffoldService;
+        _presenter = presenter;
+        _sessionService = sessionService;
         _settingsRepository = settingsRepository;
-        _pipeline = pipeline;
-        _fileGate = fileGate;
-        _contextService = contextService;
-
         _ = InitializeAsync();
     }
 
     private async Task InitializeAsync()
     {
-        if (await _onboardingService.IsOnboardingRequiredAsync())
-        {
-            AddAgentMessage("Hello! I'm Tower, your AI development agent. What would you like to build today?");
-        }
-        else
-        {
-            var projects = await _projectService.GetAllProjectsAsync();
-            var recent = projects.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
-            if (recent is not null)
-            {
-                var agentFolder = _scaffoldService.GetAgentFolderPath(recent.Name);
-                ActiveProjectName = recent.Name;
-                _fileGate.SetProjectRoots(agentFolder, recent.ProjectFolderPath);
-                _contextService.SetProject(recent, agentFolder, recent.ProjectFolderPath);
-            }
-        }
+        var settings = await _settingsRepository.GetGlobalSettingsAsync();
+        AgentAvatarImagePath = settings.AgentAvatarImagePath;
+        UserAvatarImagePath = settings.UserAvatarImagePath;
+        AgentAvatarColor = PresetColor(settings.AgentAvatarPreset, "#5B8AF5");
+        UserAvatarColor = PresetColor(settings.UserAvatarPreset, "#4A7A4A");
+        AgentAvatarShape = string.IsNullOrWhiteSpace(settings.AgentAvatarShape) ? "person" : settings.AgentAvatarShape;
+        UserAvatarShape = string.IsNullOrWhiteSpace(settings.UserAvatarShape) ? "person" : settings.UserAvatarShape;
+        // C-040: greeting is shown via LoadSessionAsync for empty sessions — not here
     }
 
     [RelayCommand(CanExecute = nameof(CanSend))]
@@ -101,7 +104,6 @@ public partial class ChatViewModel : ObservableObject
     {
         var text = UserInput.Trim();
         UserInput = string.Empty;
-        IsBusy = true;
 
         Messages.Add(new ChatTurnViewModel
         {
@@ -110,15 +112,104 @@ public partial class ChatViewModel : ObservableObject
             Timestamp = DateTime.Now.ToString("HH:mm")
         });
 
-        var result = await _chatService.SendAsync(text);
+        IsBusy = true;
+
+        // C-023/C-024/C-035: Create or rename session on first message
+        if (_isFirstMessage)
+        {
+            _isFirstMessage = false;
+            var session = await _sessionService.StartStandaloneSessionAsync();
+            _currentSessionId = session.Id;
+            await RenameFromTextAsync(session.Id, text);
+        }
+        else if (_shouldRenameOnFirstMessage && _currentSessionId.HasValue)
+        {
+            _shouldRenameOnFirstMessage = false;
+            await RenameFromTextAsync(_currentSessionId.Value, text);
+        }
+
+        // C-029: Save user message
+        if (_currentSessionId.HasValue)
+            await _sessionService.SaveMessageAsync(_currentSessionId.Value, "User", text);
+
+        var result = await _presenter.SendAsync(text);
 
         foreach (var command in result.Commands)
             await HandleCommandAsync(command);
 
         if (!string.IsNullOrWhiteSpace(result.DisplayText))
+        {
             AddAgentMessage(result.DisplayText);
+            // C-029: Save agent message
+            if (_currentSessionId.HasValue)
+                await _sessionService.SaveMessageAsync(_currentSessionId.Value, "Tower", result.DisplayText);
+        }
 
         IsBusy = false;
+    }
+
+    // C-033: Reset session state (called when sidebar has no selection)
+    public void ClearSession()
+    {
+        _currentSessionId = null;
+        _isFirstMessage = true;
+        _shouldRenameOnFirstMessage = false;
+        CurrentSessionName = string.Empty;
+        Messages.Clear();
+    }
+
+    // C-029/C-034/C-035: Load a session's messages (called when user selects session in sidebar)
+    public async Task LoadSessionAsync(Guid sessionId, string sessionName)
+    {
+        // C-045: track generation so a stale concurrent load doesn't overwrite a newer one
+        var generation = ++_loadGeneration;
+        _currentSessionId = sessionId;
+        _isFirstMessage = false;
+        CurrentSessionName = sessionName;
+        Messages.Clear();
+
+        var messages = await _sessionService.GetMessagesAsync(sessionId);
+        if (generation != _loadGeneration) return; // superseded by a newer load
+
+        foreach (var msg in messages)
+        {
+            Messages.Add(new ChatTurnViewModel
+            {
+                Role = msg.Role,
+                Content = msg.Content,
+                Timestamp = msg.Timestamp.LocalDateTime.ToString("HH:mm")
+            });
+        }
+
+        // C-034: trigger greeting for empty sessions
+        // C-035: flag unnamed sessions for rename on first message
+        _shouldRenameOnFirstMessage = messages.Count == 0 && IsDefaultSessionName(sessionName);
+        if (messages.Count == 0)
+        {
+            var result = await _presenter.InitializeAsync();
+            if (generation != _loadGeneration) return;
+            if (result.InitialMessage is not null)
+                AddAgentMessage(result.InitialMessage);
+        }
+    }
+
+    // C-051: update the chat title when the current session is renamed externally
+    public void UpdateSessionName(Guid sessionId, string newName)
+    {
+        if (_currentSessionId == sessionId)
+            CurrentSessionName = newName;
+    }
+
+    // C-047: re-read avatar settings after settings saved
+    public async Task ReloadAvatarSettingsAsync()
+    {
+        var settings = await _settingsRepository.GetGlobalSettingsAsync();
+        AgentAvatarImagePath = settings.AgentAvatarImagePath;
+        UserAvatarImagePath = settings.UserAvatarImagePath;
+        AgentAvatarColor = PresetColor(settings.AgentAvatarPreset, "#5B8AF5");
+        UserAvatarColor = PresetColor(settings.UserAvatarPreset, "#4A7A4A");
+        AgentAvatarShape = string.IsNullOrWhiteSpace(settings.AgentAvatarShape) ? "person" : settings.AgentAvatarShape;
+        UserAvatarShape = string.IsNullOrWhiteSpace(settings.UserAvatarShape) ? "person" : settings.UserAvatarShape;
     }
 
     // ── Project confirmation (US-153) ────────────────────────────────────────
@@ -127,23 +218,12 @@ public partial class ChatViewModel : ObservableObject
     private async Task ConfirmProjectAsync()
     {
         if (_pendingProjectConfirm is null) return;
-
         IsBusy = true;
         HasProjectConfirmPending = false;
-
-        var settings = await _settingsRepository.GetGlobalSettingsAsync();
-        var codeFolder = _scaffoldService.GetCodeFolderPath(_pendingProjectConfirm.ProjectName, settings.SourceControlRoot);
-        var project = await _projectService.CreateProjectAsync(_pendingProjectConfirm.ProjectName, codeFolder);
-
-        await _scaffoldService.CreateScaffoldAsync(_pendingProjectConfirm.ProjectName, settings.SourceControlRoot);
-
-        var agentFolder = _scaffoldService.GetAgentFolderPath(project.Name);
-        ActiveProjectName = project.Name;
-        _fileGate.SetProjectRoots(agentFolder, codeFolder);
-        _contextService.SetProject(project, agentFolder, codeFolder);
-
+        var (projectName, message) = await _presenter.ConfirmProjectAsync(_pendingProjectConfirm);
+        ActiveProjectName = projectName;
         _pendingProjectConfirm = null;
-        AddAgentMessage($"Project \"{project.Name}\" created! Your agent folder and code folder are ready.");
+        AddAgentMessage(message);
         IsBusy = false;
     }
 
@@ -161,13 +241,10 @@ public partial class ChatViewModel : ObservableObject
     private async Task ApprovePermissionAsync()
     {
         if (_pendingPermissionRequest is null) return;
-
-        _fileGate.GrantReadAccess(_pendingPermissionRequest.Path);
-        HasPermissionRequestPending = false;
         var path = _pendingPermissionRequest.Path;
+        HasPermissionRequestPending = false;
         _pendingPermissionRequest = null;
-
-        var result = await _chatService.SendAsync($"[PATH_ACCESS_GRANTED:{{\"path\":\"{path}\"}}]");
+        var result = await _presenter.GrantPermissionAsync(path);
         foreach (var cmd in result.Commands) await HandleCommandAsync(cmd);
         if (!string.IsNullOrWhiteSpace(result.DisplayText))
             AddAgentMessage(result.DisplayText);
@@ -190,25 +267,11 @@ public partial class ChatViewModel : ObservableObject
             case FolderSelectCommand folderSelect:
                 await HandleFolderSelectAsync(folderSelect);
                 break;
-
             case ProjectConfirmCommand projectConfirm:
                 _pendingProjectConfirm = projectConfirm;
                 PendingProjectSummary = $"Create project \"{projectConfirm.ProjectName}\" — {projectConfirm.ProjectIntent}";
                 HasProjectConfirmPending = true;
                 break;
-
-            case ReadFileCommand readFile:
-                await HandleReadFileAsync(readFile);
-                break;
-
-            case WriteFileCommand writeFile:
-                await HandleWriteFileAsync(writeFile);
-                break;
-
-            case ListDirectoryCommand listDir:
-                await HandleListDirectoryAsync(listDir);
-                break;
-
             case PathPermissionRequestCommand permissionRequest:
                 _pendingPermissionRequest = permissionRequest;
                 PendingPermissionSummary = $"Tower is requesting read access to:\n{permissionRequest.Path}\n\nReason: {permissionRequest.Reason}";
@@ -217,114 +280,20 @@ public partial class ChatViewModel : ObservableObject
         }
     }
 
-    // ── File operations (US-159–162) ─────────────────────────────────────────
-
-    private async Task HandleReadFileAsync(ReadFileCommand command)
-    {
-        if (!_fileGate.CanRead(command.Path))
-        {
-            var denied = await _chatService.SendAsync(
-                $"[READ_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"Access denied\"}}]");
-            if (!string.IsNullOrWhiteSpace(denied.DisplayText))
-                AddAgentMessage(denied.DisplayText);
-            return;
-        }
-
-        var response = await _pipeline.SendAsync(
-            ProviderRequest.Create(ProviderCapability.FileRead,
-                new Dictionary<string, object> { ["path"] = command.Path }));
-
-        var resultMsg = response.Success
-            ? $"[READ_FILE_RESULT:{{\"path\":\"{command.Path}\",\"content\":{JsonSerializer.Serialize((string)response.Result["content"])}}}]"
-            : $"[READ_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"{response.ErrorMessage}\"}}]";
-
-        var followUp = await _chatService.SendAsync(resultMsg);
-        foreach (var cmd in followUp.Commands) await HandleCommandAsync(cmd);
-        if (!string.IsNullOrWhiteSpace(followUp.DisplayText))
-            AddAgentMessage(followUp.DisplayText);
-    }
-
-    private async Task HandleWriteFileAsync(WriteFileCommand command)
-    {
-        if (!_fileGate.CanWrite(command.Path))
-        {
-            var denied = await _chatService.SendAsync(
-                $"[WRITE_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"Access denied — path outside project roots\"}}]");
-            if (!string.IsNullOrWhiteSpace(denied.DisplayText))
-                AddAgentMessage(denied.DisplayText);
-            return;
-        }
-
-        var response = await _pipeline.SendAsync(
-            ProviderRequest.Create(ProviderCapability.FileWrite,
-                new Dictionary<string, object> { ["path"] = command.Path, ["content"] = command.Content }));
-
-        var resultMsg = response.Success
-            ? $"[WRITE_FILE_RESULT:{{\"path\":\"{command.Path}\",\"success\":true}}]"
-            : $"[WRITE_FILE_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"{response.ErrorMessage}\"}}]";
-
-        var followUp = await _chatService.SendAsync(resultMsg);
-        foreach (var cmd in followUp.Commands) await HandleCommandAsync(cmd);
-        if (!string.IsNullOrWhiteSpace(followUp.DisplayText))
-            AddAgentMessage(followUp.DisplayText);
-    }
-
-    private async Task HandleListDirectoryAsync(ListDirectoryCommand command)
-    {
-        if (!_fileGate.CanRead(command.Path))
-        {
-            var denied = await _chatService.SendAsync(
-                $"[LIST_DIR_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"Access denied\"}}]");
-            if (!string.IsNullOrWhiteSpace(denied.DisplayText))
-                AddAgentMessage(denied.DisplayText);
-            return;
-        }
-
-        var response = await _pipeline.SendAsync(
-            ProviderRequest.Create(ProviderCapability.DirectoryList,
-                new Dictionary<string, object> { ["path"] = command.Path }));
-
-        string resultMsg;
-        if (response.Success)
-        {
-            var entries = (IReadOnlyList<string>)response.Result["entries"];
-            resultMsg = $"[LIST_DIR_RESULT:{{\"path\":\"{command.Path}\",\"entries\":{JsonSerializer.Serialize(entries)}}}]";
-        }
-        else
-        {
-            resultMsg = $"[LIST_DIR_RESULT:{{\"path\":\"{command.Path}\",\"error\":\"{response.ErrorMessage}\"}}]";
-        }
-
-        var followUp = await _chatService.SendAsync(resultMsg);
-        foreach (var cmd in followUp.Commands) await HandleCommandAsync(cmd);
-        if (!string.IsNullOrWhiteSpace(followUp.DisplayText))
-            AddAgentMessage(followUp.DisplayText);
-    }
-
     // ── Folder picker (US-155) ───────────────────────────────────────────────
 
     private async Task HandleFolderSelectAsync(FolderSelectCommand command)
     {
         var dialog = new OpenFolderDialog { Title = command.Reason };
-
         if (dialog.ShowDialog() != true)
         {
-            var cancelResult = await _chatService.SendAsync("[FOLDER_SELECT_RESULT:{\"cancelled\":true}]");
+            var cancelResult = await _presenter.HandleFolderCancelledAsync();
             if (!string.IsNullOrWhiteSpace(cancelResult.DisplayText))
                 AddAgentMessage(cancelResult.DisplayText);
             return;
         }
-
         var selectedPath = dialog.FolderName;
-
-        if (!await _onboardingService.IsSourceControlRootSetAsync())
-        {
-            var settings = await _settingsRepository.GetGlobalSettingsAsync();
-            settings.SourceControlRoot = selectedPath;
-            await _settingsRepository.SaveGlobalSettingsAsync(settings);
-        }
-
-        var continueResult = await _chatService.SendAsync($"[FOLDER_SELECT_RESULT:{{\"path\":\"{selectedPath}\"}}]");
+        var continueResult = await _presenter.HandleFolderSelectedAsync(selectedPath);
         foreach (var nestedCmd in continueResult.Commands)
             await HandleCommandAsync(nestedCmd);
         if (!string.IsNullOrWhiteSpace(continueResult.DisplayText))
@@ -342,4 +311,31 @@ public partial class ChatViewModel : ObservableObject
     }
 
     private bool CanSend() => !IsBusy && !string.IsNullOrWhiteSpace(UserInput);
+
+    // C-035: Rename session from first message text
+    private async Task RenameFromTextAsync(Guid sessionId, string text)
+    {
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var draftName = string.Join(" ", words.Take(5));
+        if (draftName.Length > 40) draftName = draftName[..40];
+        if (!string.IsNullOrWhiteSpace(draftName))
+        {
+            await _sessionService.RenameAsync(sessionId, draftName);
+            CurrentSessionName = draftName;
+        }
+    }
+
+    // C-035: Detect default date/time session name (e.g. "Session 2026-05-25 04:22")
+    private static bool IsDefaultSessionName(string name)
+        => name.StartsWith("Session ", StringComparison.Ordinal);
+
+    // C-031: Map preset name to hex color
+    private static string PresetColor(string preset, string defaultColor) => preset switch
+    {
+        "blue"   => "#5B8AF5",
+        "purple" => "#A855F7",
+        "teal"   => "#10B981",
+        "amber"  => "#F59E0B",
+        _        => defaultColor
+    };
 }

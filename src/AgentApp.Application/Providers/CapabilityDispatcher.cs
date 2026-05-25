@@ -2,11 +2,11 @@ using AgentApp.Domain.Providers;
 
 namespace AgentApp.Application.Providers;
 
-public class OrchestratorPipeline
+public class CapabilityDispatcher
 {
     private readonly IProviderRegistry _registry;
 
-    public OrchestratorPipeline(IProviderRegistry registry)
+    public CapabilityDispatcher(IProviderRegistry registry)
     {
         _registry = registry;
     }
