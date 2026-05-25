@@ -62,11 +62,17 @@ public partial class App : System.Windows.Application
         services.AddSingleton<IFilePermissionGate, FileSessionGate>();
 
         // Provider pipeline — file providers registered alongside model provider
+        // C-037: load model URL + name from settings at startup
         services.AddSingleton<IProviderRegistry>(sp =>
         {
             var registry = new ProviderRegistry();
             var credentialService = sp.GetRequiredService<ICredentialService>();
-            var chatClient = AzureClientFactory.BuildFromCredentials(credentialService);
+            var settingsRepo = sp.GetRequiredService<ISettingsRepository>();
+            var settings = settingsRepo.GetGlobalSettingsAsync().GetAwaiter().GetResult();
+            var chatClient = AzureClientFactory.BuildFromCredentials(
+                credentialService,
+                settings.ModelUrl,
+                settings.ModelName);
             if (chatClient is not null)
                 registry.Register(new AzureChatClientProvider(chatClient));
             registry.Register(new FileReadProvider());

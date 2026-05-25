@@ -11,11 +11,12 @@ public partial class GlobalSettingsViewModel : ObservableObject
     private readonly ISettingsRepository _settingsRepository;
     private readonly ICredentialService _credentialService;
     private const string CredentialName = "AgentApp:AzureModelKey";
-    private const string DefaultRootFolder = @"C:\GitHub";
     private const string DefaultModelUrl = "https://msdnfoundry.services.ai.azure.com/models";
+    private const string DefaultModelName = "Kimi-K2.5";
 
     [ObservableProperty] private string _rootProjectFolderPath = string.Empty;
     [ObservableProperty] private string _modelUrl = string.Empty;
+    [ObservableProperty] private string _modelName = string.Empty;
     [ObservableProperty] private int _maxGateRetries = 3;
     [ObservableProperty] private bool _requireUserConfirmationForInternalLearning;
     [ObservableProperty] private bool _requireUserConfirmationForFindingsExtraction;
@@ -46,15 +47,18 @@ public partial class GlobalSettingsViewModel : ObservableObject
     {
         var settings = await _settingsRepository.GetGlobalSettingsAsync();
 
-        // C-028: pre-fill with default if never set
-        RootProjectFolderPath = string.IsNullOrWhiteSpace(settings.RootProjectFolderPath)
-            ? DefaultRootFolder
-            : settings.RootProjectFolderPath;
+        // C-038: no default — sourceControlRoot must never be defaulted (BUSINESS-RULES.md)
+        RootProjectFolderPath = settings.RootProjectFolderPath;
 
         // C-027: model URL with default
         ModelUrl = string.IsNullOrWhiteSpace(settings.ModelUrl)
             ? DefaultModelUrl
             : settings.ModelUrl;
+
+        // C-037: model name with default
+        ModelName = string.IsNullOrWhiteSpace(settings.ModelName)
+            ? DefaultModelName
+            : settings.ModelName;
 
         MaxGateRetries = settings.MaxGateRetries;
         RequireUserConfirmationForInternalLearning = settings.RequireUserConfirmationForInternalLearning;
@@ -84,6 +88,7 @@ public partial class GlobalSettingsViewModel : ObservableObject
         {
             RootProjectFolderPath = RootProjectFolderPath.Trim(),
             ModelUrl = ModelUrl.Trim(),
+            ModelName = ModelName.Trim(),
             MaxGateRetries = MaxGateRetries,
             RequireUserConfirmationForInternalLearning = RequireUserConfirmationForInternalLearning,
             RequireUserConfirmationForFindingsExtraction = RequireUserConfirmationForFindingsExtraction,
@@ -124,4 +129,11 @@ public partial class GlobalSettingsViewModel : ObservableObject
         if (dlg.ShowDialog() == true)
             UserAvatarImagePath = dlg.FileName;
     }
+
+    // C-039: Preset selection commands
+    [RelayCommand]
+    private void SelectAgentPreset(string preset) => AgentAvatarPreset = preset;
+
+    [RelayCommand]
+    private void SelectUserPreset(string preset) => UserAvatarPreset = preset;
 }

@@ -35,6 +35,7 @@ public partial class ChatViewModel : ObservableObject
 
     private Guid? _currentSessionId;
     private bool _isFirstMessage = true;
+    private bool _shouldRenameOnFirstMessage;
 
     // C-025/C-031: Avatar configuration
     [ObservableProperty]
@@ -107,20 +108,18 @@ public partial class ChatViewModel : ObservableObject
 
         IsBusy = true;
 
-        // C-023/C-024: On first message, create session and name it
+        // C-023/C-024/C-035: Create or rename session on first message
         if (_isFirstMessage)
         {
             _isFirstMessage = false;
             var session = await _sessionService.StartStandaloneSessionAsync();
             _currentSessionId = session.Id;
-            var nameWords = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var draftName = string.Join(" ", nameWords.Take(5));
-            if (draftName.Length > 40) draftName = draftName[..40];
-            if (!string.IsNullOrWhiteSpace(draftName))
-            {
-                await _sessionService.RenameAsync(session.Id, draftName);
-                CurrentSessionName = draftName;
-            }
+            await RenameFromTextAsync(session.Id, text);
+        }
+        else if (_shouldRenameOnFirstMessage && _currentSessionId.HasValue)
+        {
+            _shouldRenameOnFirstMessage = false;
+            await RenameFromTextAsync(_currentSessionId.Value, text);
         }
 
         // C-029: Save user message
@@ -143,7 +142,17 @@ public partial class ChatViewModel : ObservableObject
         IsBusy = false;
     }
 
-    // C-029: Load a session's messages (called when user selects session in sidebar)
+    // C-033: Reset session state (called when sidebar has no selection)
+    public void ClearSession()
+    {
+        _currentSessionId = null;
+        _isFirstMessage = true;
+        _shouldRenameOnFirstMessage = false;
+        CurrentSessionName = string.Empty;
+        Messages.Clear();
+    }
+
+    // C-029/C-034/C-035: Load a session's messages (called when user selects session in sidebar)
     public async Task LoadSessionAsync(Guid sessionId, string sessionName)
     {
         _currentSessionId = sessionId;
@@ -160,6 +169,16 @@ public partial class ChatViewModel : ObservableObject
                 Content = msg.Content,
                 Timestamp = msg.Timestamp.LocalDateTime.ToString("HH:mm")
             });
+        }
+
+        // C-034: trigger greeting for empty sessions
+        // C-035: flag unnamed sessions for rename on first message
+        _shouldRenameOnFirstMessage = messages.Count == 0 && IsDefaultSessionName(sessionName);
+        if (messages.Count == 0)
+        {
+            var result = await _presenter.InitializeAsync();
+            if (result.InitialMessage is not null)
+                AddAgentMessage(result.InitialMessage);
         }
     }
 
@@ -262,6 +281,23 @@ public partial class ChatViewModel : ObservableObject
     }
 
     private bool CanSend() => !IsBusy && !string.IsNullOrWhiteSpace(UserInput);
+
+    // C-035: Rename session from first message text
+    private async Task RenameFromTextAsync(Guid sessionId, string text)
+    {
+        var words = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var draftName = string.Join(" ", words.Take(5));
+        if (draftName.Length > 40) draftName = draftName[..40];
+        if (!string.IsNullOrWhiteSpace(draftName))
+        {
+            await _sessionService.RenameAsync(sessionId, draftName);
+            CurrentSessionName = draftName;
+        }
+    }
+
+    // C-035: Detect default date/time session name (e.g. "Session 2026-05-25 04:22")
+    private static bool IsDefaultSessionName(string name)
+        => name.StartsWith("Session ", StringComparison.Ordinal);
 
     // C-031: Map preset name to hex color
     private static string PresetColor(string preset, string defaultColor) => preset switch

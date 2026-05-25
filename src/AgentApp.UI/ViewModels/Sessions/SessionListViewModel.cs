@@ -53,12 +53,13 @@ public partial class SessionListViewModel : ObservableObject
             Sessions.Add(new SessionItemViewModel(s));
     }
 
-    // US-184: Create a new standalone session
+    // US-184: Create a new standalone session — C-034: auto-select so chat loads with greeting
     [RelayCommand]
     private async Task CreateSessionAsync()
     {
-        await _sessionService.StartStandaloneSessionAsync();
+        var session = await _sessionService.StartStandaloneSessionAsync();
         await RefreshAsync();
+        SelectedSession = Sessions.FirstOrDefault(s => s.Id == session.Id);
         StatusMessage = "New session created.";
     }
 

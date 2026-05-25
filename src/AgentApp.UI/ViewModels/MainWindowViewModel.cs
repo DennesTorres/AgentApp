@@ -39,14 +39,14 @@ public partial class MainWindowViewModel : ObservableObject
         GlobalSettingsViewModel = globalSettingsViewModel;
         ProjectSettingsViewModel = projectSettingsViewModel;
 
-        // C-029: when user selects a session in sidebar, load it into chat
+        // C-029/C-033: when user selects (or deselects) a session in sidebar
         sessionListViewModel.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(SessionListViewModel.SelectedSession)
-                && sessionListViewModel.SelectedSession is { } sel)
-            {
+            if (e.PropertyName != nameof(SessionListViewModel.SelectedSession)) return;
+            if (sessionListViewModel.SelectedSession is { } sel)
                 _ = chatViewModel.LoadSessionAsync(sel.Id, sel.Name);
-            }
+            else
+                chatViewModel.ClearSession();
         };
     }
 

@@ -56,9 +56,13 @@
             <PasswordBox x:Name="NewApiKeyBox" MinHeight="32" Margin="0,0,0,16"
                          PasswordChanged="NewApiKeyBox_PasswordChanged" />
 
-            <!-- C-027: Model URL -->
-            <TextBlock Text="Model URL" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
+            <!-- C-027/C-037: Model connection -->
+            <TextBlock Text="Model" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
+            <TextBlock Text="Model URL" Foreground="#888" Margin="0,0,0,4" />
             <TextBox Text="{Binding ModelUrl, UpdateSourceTrigger=PropertyChanged}"
+                     MinHeight="30" Margin="0,0,0,8" />
+            <TextBlock Text="Model Name" Foreground="#888" Margin="0,0,0,4" />
+            <TextBox Text="{Binding ModelName, UpdateSourceTrigger=PropertyChanged}"
                      MinHeight="30" Margin="0,0,0,16" />
 
             <!-- File system -->
@@ -101,12 +105,99 @@
                       IsChecked="{Binding RequireUserConfirmationForFindingsExtraction}"
                       Margin="0,0,0,16" />
 
-            <!-- C-025: Avatars -->
+            <!-- C-025/C-039: Avatars -->
             <TextBlock Text="Avatars" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
 
             <!-- Agent avatar -->
-            <TextBlock Text="Agent avatar image (PNG/JPG):" Foreground="#888" Margin="0,0,0,4" />
-            <Grid Margin="0,0,0,4">
+            <TextBlock Text="Agent — built-in color preset:" Foreground="#888" Margin="0,0,0,6" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <!-- Blue -->
+                <Button Command="{Binding SelectAgentPresetCommand}" CommandParameter="blue"
+                        Width="36" Height="36" Margin="0,0,8,0" ToolTip="Blue" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Width="32" Height="32" CornerRadius="16"
+                                    Background="#5B8AF5" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AgentAvatarPreset}" Value="blue">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <!-- Purple -->
+                <Button Command="{Binding SelectAgentPresetCommand}" CommandParameter="purple"
+                        Width="36" Height="36" Margin="0,0,8,0" ToolTip="Purple" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="32" Height="32" CornerRadius="16"
+                                    Background="#A855F7" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AgentAvatarPreset}" Value="purple">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <!-- Teal -->
+                <Button Command="{Binding SelectAgentPresetCommand}" CommandParameter="teal"
+                        Width="36" Height="36" Margin="0,0,8,0" ToolTip="Teal" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="32" Height="32" CornerRadius="16"
+                                    Background="#10B981" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AgentAvatarPreset}" Value="teal">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <!-- Amber -->
+                <Button Command="{Binding SelectAgentPresetCommand}" CommandParameter="amber"
+                        Width="36" Height="36" ToolTip="Amber" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="32" Height="32" CornerRadius="16"
+                                    Background="#F59E0B" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AgentAvatarPreset}" Value="amber">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+            <TextBlock Text="Agent avatar custom image (PNG/JPG — overrides preset):" Foreground="#888" Margin="0,0,0,4" />
+            <Grid Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -116,20 +207,93 @@
                 <Button Grid.Column="1" Content="Browse…" Command="{Binding BrowseAgentAvatarCommand}"
                         MinWidth="80" MinHeight="30" />
             </Grid>
-            <TextBlock Text="Fallback letter (when no image):" Foreground="#888" FontSize="11" Margin="0,0,0,4" />
-            <Grid Margin="0,0,0,12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="60" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Agent avatar letter" VerticalAlignment="Center" />
-                <TextBox Grid.Column="1" Text="{Binding AgentAvatarLetter, UpdateSourceTrigger=PropertyChanged}"
-                         MaxLength="1" MinHeight="30" />
-            </Grid>
 
             <!-- User avatar -->
-            <TextBlock Text="User avatar image (PNG/JPG):" Foreground="#888" Margin="0,0,0,4" />
-            <Grid Margin="0,0,0,4">
+            <TextBlock Text="User — built-in color preset:" Foreground="#888" Margin="0,0,0,6" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <Button Command="{Binding SelectUserPresetCommand}" CommandParameter="blue"
+                        Width="36" Height="36" Margin="0,0,8,0" ToolTip="Blue" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="32" Height="32" CornerRadius="16"
+                                    Background="#5B8AF5" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UserAvatarPreset}" Value="blue">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button Command="{Binding SelectUserPresetCommand}" CommandParameter="purple"
+                        Width="36" Height="36" Margin="0,0,8,0" ToolTip="Purple" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="32" Height="32" CornerRadius="16"
+                                    Background="#A855F7" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UserAvatarPreset}" Value="purple">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button Command="{Binding SelectUserPresetCommand}" CommandParameter="teal"
+                        Width="36" Height="36" Margin="0,0,8,0" ToolTip="Teal" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="32" Height="32" CornerRadius="16"
+                                    Background="#10B981" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UserAvatarPreset}" Value="teal">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+                <Button Command="{Binding SelectUserPresetCommand}" CommandParameter="amber"
+                        Width="36" Height="36" ToolTip="Amber" Padding="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Width="32" Height="32" CornerRadius="16"
+                                    Background="#F59E0B" Cursor="Hand">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding UserAvatarPreset}" Value="amber">
+                                                <Setter Property="BorderBrush" Value="White" />
+                                                <Setter Property="BorderThickness" Value="2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+            <TextBlock Text="User avatar custom image (PNG/JPG — overrides preset):" Foreground="#888" Margin="0,0,0,4" />
+            <Grid Margin="0,0,0,20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -138,16 +302,6 @@
                          MinHeight="30" Margin="0,0,6,0" />
                 <Button Grid.Column="1" Content="Browse…" Command="{Binding BrowseUserAvatarCommand}"
                         MinWidth="80" MinHeight="30" />
-            </Grid>
-            <TextBlock Text="Fallback letter (when no image):" Foreground="#888" FontSize="11" Margin="0,0,0,4" />
-            <Grid Margin="0,0,0,20">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="60" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="User avatar letter" VerticalAlignment="Center" />
-                <TextBox Grid.Column="1" Text="{Binding UserAvatarLetter, UpdateSourceTrigger=PropertyChanged}"
-                         MaxLength="1" MinHeight="30" />
             </Grid>
 
             <Button Content="Save Settings" Command="{Binding SaveCommand}"

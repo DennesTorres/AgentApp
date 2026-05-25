@@ -224,8 +224,9 @@
                     <Button Grid.Column="0" Content="☰" Command="{Binding ToggleSessionPanelCommand}"
                             Padding="10,4" FontSize="14" ToolTip="Toggle session list" />
                     <TextBlock Grid.Column="1" Text="{Binding ChatViewModel.CurrentSessionName}"
-                               Foreground="#888888" FontSize="12" VerticalAlignment="Center"
-                               Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+                               Foreground="#E8E8F0" FontSize="13" FontWeight="SemiBold"
+                               VerticalAlignment="Center" Margin="12,0,0,0"
+                               TextTrimming="CharacterEllipsis" />
                 </Grid>
             </Border>
 
