@@ -68,7 +68,7 @@ public partial class App : System.Windows.Application
             var registry = new ProviderRegistry();
             var credentialService = sp.GetRequiredService<ICredentialService>();
             var settingsRepo = sp.GetRequiredService<ISettingsRepository>();
-            var settings = settingsRepo.GetGlobalSettingsAsync().GetAwaiter().GetResult();
+            var settings = Task.Run(() => settingsRepo.GetGlobalSettingsAsync()).GetAwaiter().GetResult();
             var chatClient = AzureClientFactory.BuildFromCredentials(
                 credentialService,
                 settings.ModelUrl,
