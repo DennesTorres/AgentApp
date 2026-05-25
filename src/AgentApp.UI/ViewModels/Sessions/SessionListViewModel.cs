@@ -120,8 +120,24 @@ public partial class SessionListViewModel : ObservableObject
     private async Task ArchiveSessionAsync(SessionItemViewModel? item)
     {
         if (item is null) return;
+        // C-050: track whether the archived session was the selected one
+        var wasSelected = SelectedSession?.Id == item.Id;
         await _sessionService.ArchiveAsync(item.Id);
         await RefreshAsync();
+        // C-050: if the archived session was selected, explicitly pick a replacement
+        // (null→null SetProperty is a no-op and won't trigger ClearSession in MainWindowViewModel)
+        if (wasSelected)
+        {
+            if (Sessions.Count > 0)
+                SelectedSession = Sessions[0];
+            else
+            {
+                // No sessions left — create a new one so chat is never left with a ghost
+                var newSession = await _sessionService.StartStandaloneSessionAsync();
+                await RefreshAsync();
+                SelectedSession = Sessions.FirstOrDefault(s => s.Id == newSession.Id);
+            }
+        }
         StatusMessage = "Session archived.";
     }
 

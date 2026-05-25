@@ -5,7 +5,59 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignHeight="700" d:DesignWidth="700">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- C-048/C-049: Sticky top bar — always visible, Save always reachable -->
+        <Border Grid.Row="0" Background="#141428" Padding="16,10" BorderThickness="0,0,0,1" BorderBrush="#333355">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Global Settings" FontWeight="SemiBold" FontSize="14"
+                               Foreground="#E8E8F0" VerticalAlignment="Center" />
+                    <!-- C-049: unsaved indicator dot -->
+                    <Ellipse Width="7" Height="7" Fill="#F59E0B" Margin="8,0,4,0" VerticalAlignment="Center"
+                             ToolTip="Unsaved changes">
+                        <Ellipse.Style>
+                            <Style TargetType="Ellipse">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasUnsavedChanges}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Ellipse.Style>
+                    </Ellipse>
+                    <TextBlock Foreground="#F59E0B" FontSize="11" VerticalAlignment="Center"
+                               Text="Unsaved changes">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding HasUnsavedChanges}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding StatusMessage}" Foreground="#A0C4FF"
+                           FontSize="11" VerticalAlignment="Center" Margin="0,0,12,0" />
+                <Button Grid.Column="2" Content="Save Settings" Command="{Binding SaveCommand}"
+                        MinWidth="110" MinHeight="30" />
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="20" MaxWidth="620">
 
             <!-- C-026: API Key section -->
@@ -496,10 +548,7 @@
                         MinWidth="80" MinHeight="30" />
             </Grid>
 
-            <Button Content="Save Settings" Command="{Binding SaveCommand}"
-                    MinWidth="120" MinHeight="34" HorizontalAlignment="Left" />
-            <TextBlock Text="{Binding StatusMessage}" Foreground="#A0C4FF"
-                       FontSize="12" Margin="0,8,0,0" />
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

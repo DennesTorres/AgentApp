@@ -36,6 +36,8 @@ public partial class ChatViewModel : ObservableObject
     private Guid? _currentSessionId;
     private bool _isFirstMessage = true;
     private bool _shouldRenameOnFirstMessage;
+    // C-045: guard against stale concurrent loads
+    private int _loadGeneration;
 
     // C-025/C-031: Avatar configuration
     [ObservableProperty]
@@ -159,12 +161,16 @@ public partial class ChatViewModel : ObservableObject
     // C-029/C-034/C-035: Load a session's messages (called when user selects session in sidebar)
     public async Task LoadSessionAsync(Guid sessionId, string sessionName)
     {
+        // C-045: track generation so a stale concurrent load doesn't overwrite a newer one
+        var generation = ++_loadGeneration;
         _currentSessionId = sessionId;
         _isFirstMessage = false;
         CurrentSessionName = sessionName;
         Messages.Clear();
 
         var messages = await _sessionService.GetMessagesAsync(sessionId);
+        if (generation != _loadGeneration) return; // superseded by a newer load
+
         foreach (var msg in messages)
         {
             Messages.Add(new ChatTurnViewModel
@@ -181,9 +187,29 @@ public partial class ChatViewModel : ObservableObject
         if (messages.Count == 0)
         {
             var result = await _presenter.InitializeAsync();
+            if (generation != _loadGeneration) return;
             if (result.InitialMessage is not null)
                 AddAgentMessage(result.InitialMessage);
         }
+    }
+
+    // C-051: update the chat title when the current session is renamed externally
+    public void UpdateSessionName(Guid sessionId, string newName)
+    {
+        if (_currentSessionId == sessionId)
+            CurrentSessionName = newName;
+    }
+
+    // C-047: re-read avatar settings after settings saved
+    public async Task ReloadAvatarSettingsAsync()
+    {
+        var settings = await _settingsRepository.GetGlobalSettingsAsync();
+        AgentAvatarImagePath = settings.AgentAvatarImagePath;
+        UserAvatarImagePath = settings.UserAvatarImagePath;
+        AgentAvatarColor = PresetColor(settings.AgentAvatarPreset, "#5B8AF5");
+        UserAvatarColor = PresetColor(settings.UserAvatarPreset, "#4A7A4A");
+        AgentAvatarShape = string.IsNullOrWhiteSpace(settings.AgentAvatarShape) ? "person" : settings.AgentAvatarShape;
+        UserAvatarShape = string.IsNullOrWhiteSpace(settings.UserAvatarShape) ? "person" : settings.UserAvatarShape;
     }
 
     // ── Project confirmation (US-153) ────────────────────────────────────────

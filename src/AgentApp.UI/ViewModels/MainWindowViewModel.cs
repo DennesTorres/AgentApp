@@ -1,3 +1,4 @@
+using AgentApp.Application.Sessions;
 using AgentApp.UI.ViewModels.Board;
 using AgentApp.UI.ViewModels.Chat;
 using AgentApp.UI.ViewModels.Projects;
@@ -30,7 +31,8 @@ public partial class MainWindowViewModel : ObservableObject
         SessionListViewModel sessionListViewModel,
         BoardViewModel boardViewModel,
         GlobalSettingsViewModel globalSettingsViewModel,
-        ProjectSettingsViewModel projectSettingsViewModel)
+        ProjectSettingsViewModel projectSettingsViewModel,
+        SessionService sessionService)
     {
         ChatViewModel = chatViewModel;
         ProjectListViewModel = projectListViewModel;
@@ -50,6 +52,12 @@ public partial class MainWindowViewModel : ObservableObject
             else
                 chatViewModel.ClearSession();
         };
+
+        // C-051: keep chat title in sync when a session is renamed from the sidebar
+        sessionService.SessionRenamed += (_, e) => chatViewModel.UpdateSessionName(e.sessionId, e.newName);
+
+        // C-047: reload avatar settings in chat whenever global settings are saved
+        globalSettingsViewModel.SettingsSaved += (_, _) => _ = chatViewModel.ReloadAvatarSettingsAsync();
     }
 
     [RelayCommand]

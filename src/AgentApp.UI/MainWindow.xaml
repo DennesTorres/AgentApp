@@ -241,7 +241,26 @@
                 <TabItem Header="Board" Style="{StaticResource AppTabItem}">
                     <board:BoardView DataContext="{Binding BoardViewModel}" />
                 </TabItem>
-                <TabItem Header="Settings" Style="{StaticResource AppTabItem}">
+                <TabItem Style="{StaticResource AppTabItem}">
+                    <!-- C-049: show amber dot on tab when global settings have unsaved changes -->
+                    <TabItem.Header>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Settings" />
+                            <Ellipse Width="6" Height="6" Fill="#F59E0B" Margin="5,0,0,0" VerticalAlignment="Center"
+                                     ToolTip="Unsaved changes in Settings">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding GlobalSettingsViewModel.HasUnsavedChanges}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                        </StackPanel>
+                    </TabItem.Header>
                     <TabControl Style="{StaticResource AppTabControl}">
                         <TabItem Header="Global" Style="{StaticResource AppTabItem}">
                             <settings:GlobalSettingsView DataContext="{Binding GlobalSettingsViewModel}" />

@@ -37,6 +37,10 @@ public partial class GlobalSettingsViewModel : ObservableObject
     [ObservableProperty] private string _newApiKey = string.Empty;
     [ObservableProperty] private string _statusMessage = string.Empty;
 
+    // C-047/C-049: unsaved changes indicator + event for chat to reload avatars after save
+    [ObservableProperty] private bool _hasUnsavedChanges;
+    public event EventHandler? SettingsSaved;
+
     public GlobalSettingsViewModel(ISettingsRepository settingsRepository, ICredentialService credentialService)
     {
         _settingsRepository = settingsRepository;
@@ -80,6 +84,14 @@ public partial class GlobalSettingsViewModel : ObservableObject
         UserAvatarShape = string.IsNullOrWhiteSpace(settings.UserAvatarShape) ? "person" : settings.UserAvatarShape;
     }
 
+    // C-049: mark unsaved on any user-editable property change (not status/key-state fields)
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName is not (nameof(HasUnsavedChanges) or nameof(StatusMessage) or nameof(IsApiKeySet) or nameof(NewApiKey)))
+            HasUnsavedChanges = true;
+    }
+
     [RelayCommand]
     private async Task SaveAsync()
     {
@@ -111,7 +123,9 @@ public partial class GlobalSettingsViewModel : ObservableObject
             UserAvatarShape = UserAvatarShape,
         };
         await _settingsRepository.SaveGlobalSettingsAsync(settings);
+        HasUnsavedChanges = false;
         StatusMessage = "Settings saved.";
+        SettingsSaved?.Invoke(this, EventArgs.Empty);
     }
 
     // C-025: Browse for avatar images

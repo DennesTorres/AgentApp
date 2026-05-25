@@ -18,7 +18,7 @@ public class ChatSession
         {
             Id = Guid.NewGuid(),
             ProjectId = null,
-            Name = $"Session {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm}",
+            Name = $"Session {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm:ss}",
             IsArchived = false,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -30,7 +30,7 @@ public class ChatSession
         {
             Id = Guid.NewGuid(),
             ProjectId = projectId,
-            Name = $"Session {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm}",
+            Name = $"Session {DateTimeOffset.UtcNow:yyyy-MM-dd HH:mm:ss}",
             IsArchived = false,
             CreatedAt = DateTimeOffset.UtcNow
         };
