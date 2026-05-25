@@ -5,6 +5,7 @@ using AgentApp.Application.Providers;
 using AgentApp.Domain.Agent;
 using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
+using AgentApp.Domain.Projects;
 using AgentApp.Domain.Providers;
 using Microsoft.Extensions.AI;
 
@@ -54,16 +55,14 @@ public class ChatOrchestrator
 
     public async Task<InitializeResult> InitializeAsync()
     {
-        if (await _onboardingService.IsOnboardingRequiredAsync())
-            return new InitializeResult(null, "Hello! I'm Tower, your AI development agent. What would you like to build today?");
-
         var projects = await _projectService.GetAllProjectsAsync();
         var recent = projects.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
         if (recent is not null)
         {
-            var agentFolder = _scaffoldService.GetAgentFolderPath(recent.Name);
-            _fileGate.SetProjectRoots(agentFolder, recent.ProjectFolderPath);
+            var agentFolder = _scaffoldService.GetAgentFolderPath(recent.FolderName);
             _contextService.SetProject(recent, agentFolder, recent.ProjectFolderPath);
+            if (!string.IsNullOrEmpty(recent.ProjectFolderPath))
+                _fileGate.SetProjectRoots(agentFolder, recent.ProjectFolderPath);
             return new InitializeResult(recent.Name, null);
         }
 
@@ -186,11 +185,12 @@ public class ChatOrchestrator
     public async Task<(string ProjectName, string Message)> ConfirmProjectAsync(ProjectConfirmCommand cmd)
     {
         var settings = await _settingsRepository.GetGlobalSettingsAsync();
-        var codeFolder = _scaffoldService.GetCodeFolderPath(cmd.ProjectName, settings.SourceControlRoot);
-        var project = await _projectService.CreateProjectAsync(cmd.ProjectName, codeFolder);
+        var folderName = Project.ToFolderName(cmd.ProjectName);
+        var codeFolder = _scaffoldService.GetCodeFolderPath(folderName, settings.SourceControlRoot);
+        var project = await _projectService.CreateProjectAsync(cmd.ProjectName, folderName, codeFolder, cmd.ProjectIntent);
 
-        await _scaffoldService.CreateScaffoldAsync(cmd.ProjectName, settings.SourceControlRoot);
-        var agentFolder = _scaffoldService.GetAgentFolderPath(project.Name);
+        await _scaffoldService.CreateScaffoldAsync(folderName, settings.SourceControlRoot);
+        var agentFolder = _scaffoldService.GetAgentFolderPath(folderName);
         _fileGate.SetProjectRoots(agentFolder, codeFolder);
         _contextService.SetProject(project, agentFolder, codeFolder);
 
@@ -209,11 +209,23 @@ public class ChatOrchestrator
 
     public async Task<ChatServiceResult> HandleFolderSelectedAsync(string path)
     {
-        if (!await _onboardingService.IsSourceControlRootSetAsync())
+        var settings = await _settingsRepository.GetGlobalSettingsAsync();
+        if (string.IsNullOrEmpty(settings.SourceControlRoot))
         {
-            var settings = await _settingsRepository.GetGlobalSettingsAsync();
             settings.SourceControlRoot = path;
             await _settingsRepository.SaveGlobalSettingsAsync(settings);
+        }
+
+        // Complete partial initialization: project created but SourceControlRoot not yet set
+        var context = _contextService.GetCurrent();
+        if (context.HasProject && string.IsNullOrEmpty(context.CodeFolderPath))
+        {
+            var project = context.CurrentProject!;
+            var codeFolder = _scaffoldService.GetCodeFolderPath(project.FolderName, path);
+            await _scaffoldService.CreateScaffoldAsync(project.FolderName, path);
+            var agentFolder = _scaffoldService.GetAgentFolderPath(project.FolderName);
+            _fileGate.SetProjectRoots(agentFolder, codeFolder);
+            _contextService.SetProject(project, agentFolder, codeFolder);
         }
 
         return await SendAsync($"[FOLDER_SELECT_RESULT:{{\"path\":\"{path}\"}}]");

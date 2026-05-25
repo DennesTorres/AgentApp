@@ -9,7 +9,7 @@ public class SystemMessageProviderTests
     private static AgentContext ContextWithProject(string name = "MyApp")
     {
         var ctx = new AgentContext();
-        ctx.SetProject(Project.Create(name, $"C:/code/{name}"), $"C:/agent/{name}", $"C:/code/{name}");
+        ctx.SetProject(Project.Create(name, name.ToLowerInvariant(), $"C:/code/{name}"), $"C:/agent/{name}", $"C:/code/{name}");
         return ctx;
     }
 
@@ -113,5 +113,75 @@ public class SystemMessageProviderTests
         var ctx = ContextWithProject();
         var section = provider.GetSection(ctx);
         Assert.Contains("chat", section, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // ── InitializationPromptProvider ─────────────────────────────────────────
+
+    [Fact]
+    public void InitializationPromptProvider_IsApplicable_WhenNoProject()
+    {
+        var provider = new InitializationPromptProvider();
+        Assert.True(provider.IsApplicable(new AgentContext()));
+    }
+
+    [Fact]
+    public void InitializationPromptProvider_IsApplicable_WhenProjectHasNoCodeFolder()
+    {
+        var provider = new InitializationPromptProvider();
+        var ctx = new AgentContext();
+        // Project set but empty code folder = partial init
+        ctx.SetProject(Project.Create("App", "app", ""), "C:/agent/app", "");
+        Assert.True(provider.IsApplicable(ctx));
+    }
+
+    [Fact]
+    public void InitializationPromptProvider_NotApplicable_WhenFullyInitialized()
+    {
+        var provider = new InitializationPromptProvider();
+        Assert.False(provider.IsApplicable(ContextWithProject()));
+    }
+
+    [Fact]
+    public void InitializationPromptProvider_GetSection_NoProject_MentionsStartProject()
+    {
+        var provider = new InitializationPromptProvider();
+        var section = provider.GetSection(new AgentContext());
+        Assert.Contains("STARTPROJECT", section);
+    }
+
+    [Fact]
+    public void InitializationPromptProvider_GetSection_PartialInit_MentionsFolderSelect()
+    {
+        var provider = new InitializationPromptProvider();
+        var ctx = new AgentContext();
+        ctx.SetProject(Project.Create("App", "app", ""), "C:/agent/app", "");
+        var section = provider.GetSection(ctx);
+        Assert.Contains("FOLDER_SELECT", section);
+        Assert.Contains("App", section);
+    }
+
+    // ── FileToolsPromptProvider ───────────────────────────────────────────────
+
+    [Fact]
+    public void FileToolsPromptProvider_IsApplicable_WhenFullyInitialized()
+    {
+        var provider = new FileToolsPromptProvider();
+        Assert.True(provider.IsApplicable(ContextWithProject()));
+    }
+
+    [Fact]
+    public void FileToolsPromptProvider_NotApplicable_WhenNoProject()
+    {
+        var provider = new FileToolsPromptProvider();
+        Assert.False(provider.IsApplicable(new AgentContext()));
+    }
+
+    [Fact]
+    public void FileToolsPromptProvider_GetSection_ContainsProjectName()
+    {
+        var provider = new FileToolsPromptProvider();
+        var section = provider.GetSection(ContextWithProject("MyApp"));
+        Assert.Contains("MyApp", section);
+        Assert.Contains("PATH_PERMISSION_REQUEST", section);
     }
 }

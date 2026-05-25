@@ -30,7 +30,7 @@ public class OnboardingServiceTests : IDisposable
     [Fact]
     public async Task IsOnboardingRequired_WhenProjectExists_ReturnsFalse()
     {
-        var project = Domain.Projects.Project.Create("TestProject", "/code/TestProject");
+        var project = Domain.Projects.Project.Create("TestProject", "test-project", "/code/TestProject");
         await _projectRepo.SaveAsync(project);
 
         var service = BuildService();

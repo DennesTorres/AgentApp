@@ -11,6 +11,9 @@ public class AgentContext
 
     public bool HasProject => CurrentProject is not null;
 
+    // True when a project exists AND the code folder path is set (partial init = project created but no source control root yet)
+    public bool IsFullyInitialized => HasProject && !string.IsNullOrEmpty(CodeFolderPath);
+
     public void SetProject(Project? project, string agentFolderPath, string codeFolderPath)
     {
         CurrentProject = project;

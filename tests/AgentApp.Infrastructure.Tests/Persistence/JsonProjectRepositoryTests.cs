@@ -18,7 +18,7 @@ public class JsonProjectRepositoryTests : IDisposable
     [Fact]
     public async Task SaveAsync_NewProject_CanBeRetrievedById()
     {
-        var project = Project.Create("TestProject", @"C:\Projects\Test");
+        var project = Project.Create("TestProject", "test-project", @"C:\Projects\Test");
 
         await _sut.SaveAsync(project);
         var result = await _sut.GetByIdAsync(project.Id);
@@ -39,8 +39,8 @@ public class JsonProjectRepositoryTests : IDisposable
     [Fact]
     public async Task GetAllAsync_MultipleProjects_ReturnsAll()
     {
-        await _sut.SaveAsync(Project.Create("A", @"C:\A"));
-        await _sut.SaveAsync(Project.Create("B", @"C:\B"));
+        await _sut.SaveAsync(Project.Create("A", "a", @"C:\A"));
+        await _sut.SaveAsync(Project.Create("B", "b", @"C:\B"));
 
         var result = await _sut.GetAllAsync();
 
@@ -50,7 +50,7 @@ public class JsonProjectRepositoryTests : IDisposable
     [Fact]
     public async Task DeleteAsync_ExistingProject_RemovesIt()
     {
-        var project = Project.Create("ToDelete", @"C:\Delete");
+        var project = Project.Create("ToDelete", "to-delete", @"C:\Delete");
         await _sut.SaveAsync(project);
 
         await _sut.DeleteAsync(project.Id);
@@ -62,7 +62,7 @@ public class JsonProjectRepositoryTests : IDisposable
     [Fact]
     public async Task SaveAsync_ExistingProject_UpdatesIt()
     {
-        var project = Project.Create("Original", @"C:\Original");
+        var project = Project.Create("Original", "original", @"C:\Original");
         await _sut.SaveAsync(project);
         // Save same project again (simulate update path)
         await _sut.SaveAsync(project);

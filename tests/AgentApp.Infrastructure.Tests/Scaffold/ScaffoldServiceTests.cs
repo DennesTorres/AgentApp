@@ -35,14 +35,14 @@ public class ScaffoldServiceTests : IDisposable
     }
 
     [Fact]
-    public void GetAgentFolderPath_ReturnsTowerAgentSubfolder()
+    public void GetAgentFolderPath_ReturnsTowerSubfolder()
     {
         var service = BuildService();
         var path = service.GetAgentFolderPath("TestApp");
 
         var expected = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".TowerAgent", "TestApp");
+            ".tower", "TestApp");
         Assert.Equal(expected, path);
     }
 
@@ -71,7 +71,7 @@ public class ScaffoldServiceTests : IDisposable
         // Clean up agent folder if created
         var agentFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".TowerAgent", "MyProject");
+            ".tower", "MyProject");
         if (Directory.Exists(agentFolder))
             Directory.Delete(agentFolder, recursive: true);
     }

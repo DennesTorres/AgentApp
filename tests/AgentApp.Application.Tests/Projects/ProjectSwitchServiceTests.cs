@@ -23,7 +23,7 @@ public class ProjectSwitchServiceTests : IDisposable
     [Fact]
     public async Task SwitchToProjectAsync_ExistingProject_CompletesWithoutException()
     {
-        var project = Project.Create("MyProject", @"C:\Projects");
+        var project = Project.Create("MyProject", "my-project", @"C:\Projects");
         await _projectRepository.SaveAsync(project);
 
         await _sut.SwitchToProjectAsync(project.Id);

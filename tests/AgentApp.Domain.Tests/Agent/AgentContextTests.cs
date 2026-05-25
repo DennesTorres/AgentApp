@@ -18,7 +18,7 @@ public class AgentContextTests
     public void SetProject_SetsProjectAndPaths()
     {
         var ctx = new AgentContext();
-        var project = Project.Create("TestApp", "C:/code/TestApp");
+        var project = Project.Create("TestApp", "test-app", "C:/code/TestApp");
 
         ctx.SetProject(project, "C:/agent/TestApp", "C:/code/TestApp");
 
@@ -32,7 +32,7 @@ public class AgentContextTests
     public void SetProject_ToNull_ClearsProject()
     {
         var ctx = new AgentContext();
-        ctx.SetProject(Project.Create("App", "C:/code"), "C:/agent/App", "C:/code/App");
+        ctx.SetProject(Project.Create("App", "app", "C:/code"), "C:/agent/App", "C:/code/App");
 
         ctx.SetProject(null, string.Empty, string.Empty);
 

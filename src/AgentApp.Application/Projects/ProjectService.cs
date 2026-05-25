@@ -15,9 +15,10 @@ public class ProjectService
         _settingsRepository = settingsRepository;
     }
 
-    public async Task<Project> CreateProjectAsync(string name, string projectFolderPath)
+    public async Task<Project> CreateProjectAsync(string name, string folderName,
+        string projectFolderPath, string description = "", string purpose = "")
     {
-        var project = Project.Create(name, projectFolderPath);
+        var project = Project.Create(name, folderName, projectFolderPath, description, purpose);
         await _projectRepository.SaveAsync(project);
         return project;
     }

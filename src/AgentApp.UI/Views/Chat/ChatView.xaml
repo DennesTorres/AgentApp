@@ -11,7 +11,6 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- US-157: Active project indicator / US-134: Execution state -->
@@ -200,38 +199,8 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <!-- US-153: Project confirm panel -->
-        <Border Grid.Row="2" Background="#1A2A1A" Padding="12,8" Margin="8,0,8,4" CornerRadius="6">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding HasProjectConfirmPending}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding PendingProjectSummary}"
-                           TextWrapping="Wrap" VerticalAlignment="Center"
-                           Foreground="#A8D8A8" FontSize="12" />
-                <Button Grid.Column="1" Content="Confirm"
-                        Command="{Binding ConfirmProjectCommand}"
-                        Margin="8,0,4,0" MinWidth="70" MinHeight="30" />
-                <Button Grid.Column="2" Content="Cancel"
-                        Command="{Binding CancelProjectCommand}"
-                        MinWidth="70" MinHeight="30" />
-            </Grid>
-        </Border>
-
         <!-- US-163: Path permission request panel -->
-        <Border Grid.Row="3" Background="#2A1A2A" Padding="12,8" Margin="8,0,8,4" CornerRadius="6">
+        <Border Grid.Row="2" Background="#2A1A2A" Padding="12,8" Margin="8,0,8,4" CornerRadius="6">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -261,7 +230,7 @@
         </Border>
 
         <!-- Input row -->
-        <Grid Grid.Row="4" Margin="8,0,8,8">
+        <Grid Grid.Row="3" Margin="8,0,8,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

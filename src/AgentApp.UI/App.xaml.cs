@@ -45,13 +45,18 @@ public partial class App : System.Windows.Application
     {
         var services = new ServiceCollection();
 
-        // Infrastructure — storage folder under LocalApplicationData
+        // Infrastructure — project storage under %USERPROFILE%\.tower; other data under LocalApplicationData
+        var towerRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".tower");
+        Directory.CreateDirectory(towerRoot);
+
         var appDataFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "AgentApp");
         Directory.CreateDirectory(appDataFolder);
 
-        services.AddSingleton<IProjectRepository>(_ => new JsonProjectRepository(appDataFolder));
+        services.AddSingleton<IProjectRepository>(_ => new JsonProjectRepository(towerRoot));
         services.AddSingleton<ISettingsRepository>(_ => new JsonSettingsRepository(appDataFolder));
         services.AddSingleton<IProjectSettingsRepository>(_ => new JsonProjectSettingsRepository(appDataFolder));
         services.AddSingleton<ISessionRepository>(_ => new JsonSessionRepository(appDataFolder));
@@ -85,13 +90,24 @@ public partial class App : System.Windows.Application
         services.AddSingleton<CapabilityDispatcher>();
         services.AddSingleton<IChatCommandParser, ChatCommandParser>();
         services.AddSingleton<IResponsePreparationService, ResponsePreparationService>();
-        services.AddSingleton<IActionProviderRegistry, ActionProviderRegistry>();
+        services.AddSingleton<IActionProviderRegistry>(sp =>
+        {
+            var registry = new ActionProviderRegistry();
+            registry.Register(new StartProjectActionProvider(
+                sp.GetRequiredService<ProjectService>(),
+                sp.GetRequiredService<IScaffoldService>(),
+                sp.GetRequiredService<ISettingsRepository>(),
+                sp.GetRequiredService<IAgentContextService>(),
+                sp.GetRequiredService<IFilePermissionGate>()));
+            return registry;
+        });
 
         // Agent context + system message providers
         services.AddSingleton<IAgentContextService, AgentContextService>();
-        services.AddSingleton<ISystemMessageProvider, NoProjectProvider>();
+        services.AddSingleton<ISystemMessageProvider, InitializationPromptProvider>();
         services.AddSingleton<ISystemMessageProvider, ActiveProjectProvider>();
         services.AddSingleton<ISystemMessageProvider, ExecutionStateProvider>();
+        services.AddSingleton<ISystemMessageProvider, FileToolsPromptProvider>();
 
         // Application
         services.AddSingleton<SessionService>();

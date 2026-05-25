@@ -20,7 +20,7 @@ public class AgentContextServiceTests
     public void SetProject_UpdatesContext()
     {
         var service = new AgentContextService();
-        var project = Project.Create("App", "C:/code/App");
+        var project = Project.Create("App", "app", "C:/code/App");
 
         service.SetProject(project, "C:/agent/App", "C:/code/App");
 

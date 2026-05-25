@@ -74,4 +74,16 @@ public class ChatCommandParserTests
         Assert.Equal("/docs", cmd.Path);
         Assert.Equal("Need readme", cmd.Reason);
     }
+
+    [Fact]
+    public void Parse_StartProjectCommand_ExtractsAllFields()
+    {
+        var parser = BuildParser();
+        var (_, commands) = parser.Parse("[STARTPROJECT:{\"name\":\"My App\",\"folderName\":\"my-app\",\"intent\":\"A todo list\"}]");
+        Assert.Single(commands);
+        var cmd = Assert.IsType<StartProjectCommand>(commands[0]);
+        Assert.Equal("My App", cmd.Name);
+        Assert.Equal("my-app", cmd.FolderName);
+        Assert.Equal("A todo list", cmd.Intent);
+    }
 }
