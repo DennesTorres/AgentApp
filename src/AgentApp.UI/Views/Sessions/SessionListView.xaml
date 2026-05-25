@@ -52,9 +52,9 @@
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
                             <TextBlock FontSize="11" Opacity="0.6">
                                 <Run Text="Project: " />
-                                <Run Text="{Binding ProjectLabel}" />
+                                <Run Text="{Binding ProjectLabel, Mode=OneTime}" />
                                 <Run Text="  Created: " />
-                                <Run Text="{Binding CreatedAt}" />
+                                <Run Text="{Binding CreatedAt, Mode=OneTime}" />
                             </TextBlock>
                         </StackPanel>
                         <!-- US-187: Archive -->

@@ -2,6 +2,7 @@ using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Win32;
 
 namespace AgentApp.UI.ViewModels.Settings;
 
@@ -10,36 +11,49 @@ public partial class GlobalSettingsViewModel : ObservableObject
     private readonly ISettingsRepository _settingsRepository;
     private readonly ICredentialService _credentialService;
     private const string CredentialName = "AgentApp:AzureModelKey";
+    private const string DefaultRootFolder = @"C:\GitHub";
+    private const string DefaultModelUrl = "https://msdnfoundry.services.ai.azure.com/models";
 
-    // C-012: Global settings fields
     [ObservableProperty] private string _rootProjectFolderPath = string.Empty;
+    [ObservableProperty] private string _modelUrl = string.Empty;
     [ObservableProperty] private int _maxGateRetries = 3;
     [ObservableProperty] private bool _requireUserConfirmationForInternalLearning;
     [ObservableProperty] private bool _requireUserConfirmationForFindingsExtraction;
     [ObservableProperty] private int _tokenThresholdForContextReset = 80000;
     [ObservableProperty] private string _sourceControlRoot = string.Empty;
-
-    // C-014: Avatar letters
     [ObservableProperty] private string _agentAvatarLetter = "T";
     [ObservableProperty] private string _userAvatarLetter = "U";
+    [ObservableProperty] private string _agentAvatarImagePath = string.Empty;
+    [ObservableProperty] private string _userAvatarImagePath = string.Empty;
 
-    // API key (from existing ApiKeySettingsViewModel, unified here)
-    [ObservableProperty] private string _apiKey = string.Empty;
-
+    // C-026: API key status indicator
+    [ObservableProperty] private bool _isApiKeySet;
+    [ObservableProperty] private string _newApiKey = string.Empty;
     [ObservableProperty] private string _statusMessage = string.Empty;
 
     public GlobalSettingsViewModel(ISettingsRepository settingsRepository, ICredentialService credentialService)
     {
         _settingsRepository = settingsRepository;
         _credentialService = credentialService;
-        _apiKey = _credentialService.ReadCredential(CredentialName) ?? string.Empty;
+        var existing = _credentialService.ReadCredential(CredentialName);
+        IsApiKeySet = !string.IsNullOrWhiteSpace(existing);
         _ = LoadAsync();
     }
 
     private async Task LoadAsync()
     {
         var settings = await _settingsRepository.GetGlobalSettingsAsync();
-        RootProjectFolderPath = settings.RootProjectFolderPath;
+
+        // C-028: pre-fill with default if never set
+        RootProjectFolderPath = string.IsNullOrWhiteSpace(settings.RootProjectFolderPath)
+            ? DefaultRootFolder
+            : settings.RootProjectFolderPath;
+
+        // C-027: model URL with default
+        ModelUrl = string.IsNullOrWhiteSpace(settings.ModelUrl)
+            ? DefaultModelUrl
+            : settings.ModelUrl;
+
         MaxGateRetries = settings.MaxGateRetries;
         RequireUserConfirmationForInternalLearning = settings.RequireUserConfirmationForInternalLearning;
         RequireUserConfirmationForFindingsExtraction = settings.RequireUserConfirmationForFindingsExtraction;
@@ -47,27 +61,61 @@ public partial class GlobalSettingsViewModel : ObservableObject
         SourceControlRoot = settings.SourceControlRoot;
         AgentAvatarLetter = settings.AgentAvatarLetter;
         UserAvatarLetter = settings.UserAvatarLetter;
+        AgentAvatarImagePath = settings.AgentAvatarImagePath;
+        UserAvatarImagePath = settings.UserAvatarImagePath;
     }
 
     [RelayCommand]
     private async Task SaveAsync()
     {
+        // Save API key if a new one was entered
+        if (!string.IsNullOrWhiteSpace(NewApiKey))
+        {
+            _credentialService.WriteCredential(CredentialName, NewApiKey.Trim());
+            IsApiKeySet = true;
+            NewApiKey = string.Empty;
+        }
+
         var settings = new GlobalSettings
         {
             RootProjectFolderPath = RootProjectFolderPath.Trim(),
+            ModelUrl = ModelUrl.Trim(),
             MaxGateRetries = MaxGateRetries,
             RequireUserConfirmationForInternalLearning = RequireUserConfirmationForInternalLearning,
             RequireUserConfirmationForFindingsExtraction = RequireUserConfirmationForFindingsExtraction,
             TokenThresholdForContextReset = TokenThresholdForContextReset,
             SourceControlRoot = SourceControlRoot.Trim(),
             AgentAvatarLetter = string.IsNullOrWhiteSpace(AgentAvatarLetter) ? "T" : AgentAvatarLetter.Trim()[..1],
-            UserAvatarLetter = string.IsNullOrWhiteSpace(UserAvatarLetter) ? "U" : UserAvatarLetter.Trim()[..1]
+            UserAvatarLetter = string.IsNullOrWhiteSpace(UserAvatarLetter) ? "U" : UserAvatarLetter.Trim()[..1],
+            AgentAvatarImagePath = AgentAvatarImagePath.Trim(),
+            UserAvatarImagePath = UserAvatarImagePath.Trim(),
         };
         await _settingsRepository.SaveGlobalSettingsAsync(settings);
+        StatusMessage = "Settings saved.";
+    }
 
-        if (!string.IsNullOrWhiteSpace(ApiKey))
-            _credentialService.WriteCredential(CredentialName, ApiKey.Trim());
+    // C-025: Browse for avatar images
+    [RelayCommand]
+    private void BrowseAgentAvatar()
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "Select agent avatar image",
+            Filter = "Images|*.png;*.jpg;*.jpeg;*.bmp;*.gif|All files|*.*"
+        };
+        if (dlg.ShowDialog() == true)
+            AgentAvatarImagePath = dlg.FileName;
+    }
 
-        StatusMessage = "Settings saved. Restart the app for some changes to take effect.";
+    [RelayCommand]
+    private void BrowseUserAvatar()
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "Select user avatar image",
+            Filter = "Images|*.png;*.jpg;*.jpeg;*.bmp;*.gif|All files|*.*"
+        };
+        if (dlg.ShowDialog() == true)
+            UserAvatarImagePath = dlg.FileName;
     }
 }

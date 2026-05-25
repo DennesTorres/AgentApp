@@ -6,35 +6,205 @@
         xmlns:mah="clr-namespace:MahApps.Metro.Controls;assembly=MahApps.Metro"
         xmlns:chat="clr-namespace:AgentApp.UI.Views.Chat"
         xmlns:projects="clr-namespace:AgentApp.UI.Views.Projects"
-        xmlns:sessions="clr-namespace:AgentApp.UI.Views.Sessions"
         xmlns:board="clr-namespace:AgentApp.UI.Views.Board"
         xmlns:settings="clr-namespace:AgentApp.UI.Views.Settings"
         mc:Ignorable="d"
         Title="{Binding Title}"
         Height="720" Width="1280"
         WindowStartupLocation="CenterScreen">
-    <TabControl>
-        <TabItem Header="Chat">
-            <chat:ChatView DataContext="{Binding ChatViewModel}" />
-        </TabItem>
-        <TabItem Header="Projects">
-            <projects:ProjectListView DataContext="{Binding ProjectListViewModel}" />
-        </TabItem>
-        <TabItem Header="Sessions">
-            <sessions:SessionListView DataContext="{Binding SessionListViewModel}" />
-        </TabItem>
-        <TabItem Header="Board">
-            <board:BoardView DataContext="{Binding BoardViewModel}" />
-        </TabItem>
-        <TabItem Header="Settings">
-            <TabControl>
-                <TabItem Header="Global">
-                    <settings:GlobalSettingsView DataContext="{Binding GlobalSettingsViewModel}" />
+
+    <mah:MetroWindow.Resources>
+        <!-- C-020: Tab visual styling -->
+        <Style x:Key="AppTabItem" TargetType="TabItem">
+            <Setter Property="Padding" Value="16,8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Foreground" Value="#AAAAAA" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,0,0,2" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="Root" Padding="{TemplateBinding Padding}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                Background="{TemplateBinding Background}"
+                                Cursor="Hand">
+                            <ContentPresenter ContentSource="Header"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="BorderBrush" Value="#5B8AF5" />
+                                <Setter TargetName="Root" Property="Background" Value="#1E2A40" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#252535" />
+                                <Setter Property="Foreground" Value="#DDDDDD" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AppTabControl" TargetType="TabControl">
+            <Setter Property="Background" Value="#1A1A2E" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="TabStripPlacement" Value="Top" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabControl">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <!-- Tab strip with bottom separator line -->
+                            <Border Grid.Row="0" Background="#141428" BorderThickness="0,0,0,1" BorderBrush="#333355">
+                                <TabPanel IsItemsHost="True" />
+                            </Border>
+                            <!-- Tab content -->
+                            <ContentPresenter Grid.Row="1" ContentSource="SelectedContent" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </mah:MetroWindow.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" MinWidth="0" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- C-021: Collapsible session panel (left side) -->
+        <Border Grid.Column="0" Width="240" Background="#12121E" BorderThickness="0,0,1,0" BorderBrush="#333355">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSessionPanelVisible}" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Session panel header -->
+                <Border Grid.Row="0" Background="#1A1A2E" Padding="12,10" BorderThickness="0,0,0,1" BorderBrush="#333355">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Sessions" Foreground="#A0C4FF" FontWeight="SemiBold"
+                                   FontSize="13" VerticalAlignment="Center" />
+                        <Button Content="+ New" Margin="12,0,0,0"
+                                Command="{Binding SessionListViewModel.CreateSessionCommand}"
+                                Padding="8,3" FontSize="11" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Session list (C-021: stripped-down, no filter/rename — those stay in full Sessions view) -->
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding SessionListViewModel.Sessions}"
+                         SelectedItem="{Binding SessionListViewModel.SelectedSession}"
+                         Background="Transparent" BorderThickness="0">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="Padding" Value="10,6" />
+                            <Setter Property="Foreground" Value="#CCCCCC" />
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#1E2A40" />
+                                    <Setter Property="Foreground" Value="#FFFFFF" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#1A1A30" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Text="{Binding Name}" FontSize="12"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding CreatedAt, Mode=OneTime}"
+                                           FontSize="10" Opacity="0.5" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <!-- Splitter (hidden when panel collapsed) -->
+        <GridSplitter Grid.Column="1" Width="3" HorizontalAlignment="Stretch"
+                      Background="#333355" ResizeDirection="Columns">
+            <GridSplitter.Style>
+                <Style TargetType="GridSplitter">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsSessionPanelVisible}" Value="False">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </GridSplitter.Style>
+        </GridSplitter>
+
+        <!-- Main content area -->
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Always-visible top bar: toggle button + session name -->
+            <Border Grid.Row="0" Background="#141428" Padding="8,6" BorderThickness="0,0,0,1" BorderBrush="#333355">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button Grid.Column="0" Content="☰" Command="{Binding ToggleSessionPanelCommand}"
+                            Padding="10,4" FontSize="14" ToolTip="Toggle session list" />
+                    <TextBlock Grid.Column="1" Text="{Binding ChatViewModel.CurrentSessionName}"
+                               Foreground="#888888" FontSize="12" VerticalAlignment="Center"
+                               Margin="12,0,0,0" TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </Border>
+
+            <!-- C-020: Main tab area with improved styling -->
+            <TabControl Grid.Row="1" Style="{StaticResource AppTabControl}">
+                <TabItem Header="Chat" Style="{StaticResource AppTabItem}">
+                    <chat:ChatView DataContext="{Binding ChatViewModel}" />
                 </TabItem>
-                <TabItem Header="Project">
-                    <settings:ProjectSettingsView DataContext="{Binding ProjectSettingsViewModel}" />
+                <TabItem Header="Projects" Style="{StaticResource AppTabItem}">
+                    <projects:ProjectListView DataContext="{Binding ProjectListViewModel}" />
+                </TabItem>
+                <TabItem Header="Board" Style="{StaticResource AppTabItem}">
+                    <board:BoardView DataContext="{Binding BoardViewModel}" />
+                </TabItem>
+                <TabItem Header="Settings" Style="{StaticResource AppTabItem}">
+                    <TabControl Style="{StaticResource AppTabControl}">
+                        <TabItem Header="Global" Style="{StaticResource AppTabItem}">
+                            <settings:GlobalSettingsView DataContext="{Binding GlobalSettingsViewModel}" />
+                        </TabItem>
+                        <TabItem Header="Project" Style="{StaticResource AppTabItem}">
+                            <settings:ProjectSettingsView DataContext="{Binding ProjectSettingsViewModel}" />
+                        </TabItem>
+                    </TabControl>
                 </TabItem>
             </TabControl>
-        </TabItem>
-    </TabControl>
+        </Grid>
+    </Grid>
 </mah:MetroWindow>

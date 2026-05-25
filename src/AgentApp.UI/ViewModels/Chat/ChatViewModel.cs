@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using AgentApp.Application.Sessions;
 using AgentApp.Domain.Chat;
+using AgentApp.Domain.Interfaces;
 using AgentApp.UI.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -10,6 +12,8 @@ namespace AgentApp.UI.ViewModels.Chat;
 public partial class ChatViewModel : ObservableObject
 {
     private readonly ChatPresenter _presenter;
+    private readonly SessionService _sessionService;
+    private readonly ISettingsRepository _settingsRepository;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendMessageCommand))]
@@ -22,9 +26,23 @@ public partial class ChatViewModel : ObservableObject
     [ObservableProperty]
     private string _activeProjectName = string.Empty;
 
-    // US-134: Current execution state (wired to state machine when Epic 17 merges)
+    // US-134: Current execution state
     [ObservableProperty]
     private string _currentState = "Chat";
+
+    // C-023/C-024: Current session tracking
+    [ObservableProperty]
+    private string _currentSessionName = "New Session";
+
+    private Guid? _currentSessionId;
+    private bool _isFirstMessage = true;
+
+    // C-025: Avatar image paths (loaded from settings)
+    [ObservableProperty]
+    private string _agentAvatarImagePath = string.Empty;
+
+    [ObservableProperty]
+    private string _userAvatarImagePath = string.Empty;
 
     // Project confirmation (US-153)
     private ProjectConfirmCommand? _pendingProjectConfirm;
@@ -46,14 +64,21 @@ public partial class ChatViewModel : ObservableObject
 
     public ObservableCollection<ChatTurnViewModel> Messages { get; } = [];
 
-    public ChatViewModel(ChatPresenter presenter)
+    public ChatViewModel(ChatPresenter presenter, SessionService sessionService, ISettingsRepository settingsRepository)
     {
         _presenter = presenter;
+        _sessionService = sessionService;
+        _settingsRepository = settingsRepository;
         _ = InitializeAsync();
     }
 
     private async Task InitializeAsync()
     {
+        // Load avatar image paths from settings
+        var settings = await _settingsRepository.GetGlobalSettingsAsync();
+        AgentAvatarImagePath = settings.AgentAvatarImagePath;
+        UserAvatarImagePath = settings.UserAvatarImagePath;
+
         var result = await _presenter.InitializeAsync();
         if (result.InitialMessage is not null)
             AddAgentMessage(result.InitialMessage);
@@ -76,6 +101,23 @@ public partial class ChatViewModel : ObservableObject
         });
 
         IsBusy = true;
+
+        // C-023/C-024: On first message, create a session and generate a name
+        if (_isFirstMessage)
+        {
+            _isFirstMessage = false;
+            var session = await _sessionService.StartStandaloneSessionAsync();
+            _currentSessionId = session.Id;
+            // Generate name from first message words (C-024 — dummy name from message)
+            var nameWords = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var draftName = string.Join(" ", nameWords.Take(5));
+            if (draftName.Length > 40) draftName = draftName[..40];
+            if (!string.IsNullOrWhiteSpace(draftName))
+            {
+                await _sessionService.RenameAsync(session.Id, draftName);
+                CurrentSessionName = draftName;
+            }
+        }
 
         var result = await _presenter.SendAsync(text);
 

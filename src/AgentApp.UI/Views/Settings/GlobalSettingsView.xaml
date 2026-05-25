@@ -4,22 +4,72 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
-             d:DesignHeight="600" d:DesignWidth="700">
+             d:DesignHeight="700" d:DesignWidth="700">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="16" MaxWidth="600">
+        <StackPanel Margin="20" MaxWidth="620">
 
-            <!-- API Key -->
+            <!-- C-026: API Key section -->
             <TextBlock Text="API Key" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
-            <PasswordBox x:Name="ApiKeyBox" MinHeight="32" Margin="0,0,0,12" />
+
+            <!-- Show status when key is set -->
+            <Border Padding="10,6" Margin="0,0,0,8" CornerRadius="4" Background="#1A2A1A">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsApiKeySet}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="✓" Foreground="#4CAF50" FontSize="14" FontWeight="Bold" Margin="0,0,6,0" />
+                    <TextBlock Text="API key is configured" Foreground="#A8D8A8" FontSize="12" VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="Enter new API key to replace:" Foreground="#888" FontSize="12" Margin="0,0,0,4">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsApiKeySet}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <TextBlock Text="API key (required to use the agent):" Foreground="#888" FontSize="12" Margin="0,0,0,4">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsApiKeySet}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+            <PasswordBox x:Name="NewApiKeyBox" MinHeight="32" Margin="0,0,0,16"
+                         PasswordChanged="NewApiKeyBox_PasswordChanged" />
+
+            <!-- C-027: Model URL -->
+            <TextBlock Text="Model URL" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
+            <TextBox Text="{Binding ModelUrl, UpdateSourceTrigger=PropertyChanged}"
+                     MinHeight="30" Margin="0,0,0,16" />
 
             <!-- File system -->
-            <TextBlock Text="Root Project Folder" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,4" />
+            <TextBlock Text="File System" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
+            <TextBlock Text="Root Project Folder" Foreground="#888" Margin="0,0,0,4" />
             <TextBox Text="{Binding RootProjectFolderPath, UpdateSourceTrigger=PropertyChanged}"
                      MinHeight="30" Margin="0,0,0,8" />
 
-            <TextBlock Text="Source Control Root" FontWeight="SemiBold" Foreground="#888" Margin="0,0,0,4" />
+            <TextBlock Text="Source Control Root" Foreground="#888" Margin="0,0,0,4" />
             <TextBox Text="{Binding SourceControlRoot, UpdateSourceTrigger=PropertyChanged}"
-                     MinHeight="30" Margin="0,0,0,12" />
+                     MinHeight="30" Margin="0,0,0,16" />
 
             <!-- Gate settings -->
             <TextBlock Text="Gate Settings" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
@@ -29,18 +79,16 @@
                     <ColumnDefinition Width="120" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="Max Gate Retries" VerticalAlignment="Center" />
-                <TextBox Grid.Column="1"
-                         Text="{Binding MaxGateRetries, UpdateSourceTrigger=PropertyChanged}"
+                <TextBox Grid.Column="1" Text="{Binding MaxGateRetries, UpdateSourceTrigger=PropertyChanged}"
                          MinHeight="30" />
             </Grid>
-            <Grid Margin="0,0,0,8">
+            <Grid Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="120" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="Token Threshold for Context Reset" VerticalAlignment="Center" />
-                <TextBox Grid.Column="1"
-                         Text="{Binding TokenThresholdForContextReset, UpdateSourceTrigger=PropertyChanged}"
+                <TextBox Grid.Column="1" Text="{Binding TokenThresholdForContextReset, UpdateSourceTrigger=PropertyChanged}"
                          MinHeight="30" />
             </Grid>
 
@@ -51,25 +99,53 @@
                       Margin="0,0,0,6" />
             <CheckBox Content="Require confirmation for findings extraction"
                       IsChecked="{Binding RequireUserConfirmationForFindingsExtraction}"
-                      Margin="0,0,0,12" />
+                      Margin="0,0,0,16" />
 
-            <!-- C-014: Avatar letters -->
+            <!-- C-025: Avatars -->
             <TextBlock Text="Avatars" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
-            <Grid Margin="0,0,0,6">
+
+            <!-- Agent avatar -->
+            <TextBlock Text="Agent avatar image (PNG/JPG):" Foreground="#888" Margin="0,0,0,4" />
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding AgentAvatarImagePath, UpdateSourceTrigger=PropertyChanged}"
+                         MinHeight="30" Margin="0,0,6,0" />
+                <Button Grid.Column="1" Content="Browse…" Command="{Binding BrowseAgentAvatarCommand}"
+                        MinWidth="80" MinHeight="30" />
+            </Grid>
+            <TextBlock Text="Fallback letter (when no image):" Foreground="#888" FontSize="11" Margin="0,0,0,4" />
+            <Grid Margin="0,0,0,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="60" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Agent Avatar Letter" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="0" Text="Agent avatar letter" VerticalAlignment="Center" />
                 <TextBox Grid.Column="1" Text="{Binding AgentAvatarLetter, UpdateSourceTrigger=PropertyChanged}"
                          MaxLength="1" MinHeight="30" />
             </Grid>
-            <Grid Margin="0,0,0,16">
+
+            <!-- User avatar -->
+            <TextBlock Text="User avatar image (PNG/JPG):" Foreground="#888" Margin="0,0,0,4" />
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding UserAvatarImagePath, UpdateSourceTrigger=PropertyChanged}"
+                         MinHeight="30" Margin="0,0,6,0" />
+                <Button Grid.Column="1" Content="Browse…" Command="{Binding BrowseUserAvatarCommand}"
+                        MinWidth="80" MinHeight="30" />
+            </Grid>
+            <TextBlock Text="Fallback letter (when no image):" Foreground="#888" FontSize="11" Margin="0,0,0,4" />
+            <Grid Margin="0,0,0,20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="60" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="User Avatar Letter" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="0" Text="User avatar letter" VerticalAlignment="Center" />
                 <TextBox Grid.Column="1" Text="{Binding UserAvatarLetter, UpdateSourceTrigger=PropertyChanged}"
                          MaxLength="1" MinHeight="30" />
             </Grid>

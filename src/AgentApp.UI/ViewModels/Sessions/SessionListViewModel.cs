@@ -30,6 +30,8 @@ public partial class SessionListViewModel : ObservableObject
     public SessionListViewModel(SessionService sessionService)
     {
         _sessionService = sessionService;
+        // C-023: refresh list when any session is created (e.g. from Chat tab)
+        _sessionService.SessionCreated += (_, _) => _ = RefreshAsync();
         _ = LoadSessionsAsync();
     }
 

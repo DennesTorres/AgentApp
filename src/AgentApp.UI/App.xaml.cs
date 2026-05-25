@@ -91,7 +91,10 @@ public partial class App : System.Windows.Application
 
         // UI
         services.AddSingleton<ChatPresenter>();
-        services.AddSingleton<ChatViewModel>();
+        services.AddSingleton<ChatViewModel>(sp => new ChatViewModel(
+            sp.GetRequiredService<ChatPresenter>(),
+            sp.GetRequiredService<SessionService>(),
+            sp.GetRequiredService<ISettingsRepository>()));
         services.AddSingleton<ProjectListViewModel>();
         services.AddSingleton<SessionListViewModel>();
         services.AddSingleton<BoardViewModel>();

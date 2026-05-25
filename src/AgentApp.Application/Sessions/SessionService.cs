@@ -8,6 +8,8 @@ public class SessionService
 {
     private readonly ISessionRepository _repository;
 
+    public event EventHandler<ChatSession>? SessionCreated;
+
     public SessionService(ISessionRepository repository)
     {
         _repository = repository;
@@ -17,6 +19,7 @@ public class SessionService
     {
         var session = ChatSession.CreateStandalone();
         await _repository.SaveAsync(session);
+        SessionCreated?.Invoke(this, session);
         return session;
     }
 
