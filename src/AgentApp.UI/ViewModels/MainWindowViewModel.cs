@@ -38,6 +38,16 @@ public partial class MainWindowViewModel : ObservableObject
         BoardViewModel = boardViewModel;
         GlobalSettingsViewModel = globalSettingsViewModel;
         ProjectSettingsViewModel = projectSettingsViewModel;
+
+        // C-029: when user selects a session in sidebar, load it into chat
+        sessionListViewModel.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SessionListViewModel.SelectedSession)
+                && sessionListViewModel.SelectedSession is { } sel)
+            {
+                _ = chatViewModel.LoadSessionAsync(sel.Id, sel.Name);
+            }
+        };
     }
 
     [RelayCommand]

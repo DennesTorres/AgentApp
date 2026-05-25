@@ -10,6 +10,8 @@
                 <ResourceDictionary Source="pack://application:,,,/MahApps.Metro;component/Styles/Themes/Dark.Steel.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <converters:BooleanInverseConverter x:Key="BooleanInverseConverter" />
+            <converters:FilePathToImageSourceConverter x:Key="FilePathToImageSourceConverter" />
+            <converters:StringToBrushConverter x:Key="StringToBrushConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

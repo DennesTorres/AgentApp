@@ -25,6 +25,8 @@ public partial class GlobalSettingsViewModel : ObservableObject
     [ObservableProperty] private string _userAvatarLetter = "U";
     [ObservableProperty] private string _agentAvatarImagePath = string.Empty;
     [ObservableProperty] private string _userAvatarImagePath = string.Empty;
+    [ObservableProperty] private string _agentAvatarPreset = "blue";
+    [ObservableProperty] private string _userAvatarPreset = "teal";
 
     // C-026: API key status indicator
     [ObservableProperty] private bool _isApiKeySet;
@@ -63,6 +65,8 @@ public partial class GlobalSettingsViewModel : ObservableObject
         UserAvatarLetter = settings.UserAvatarLetter;
         AgentAvatarImagePath = settings.AgentAvatarImagePath;
         UserAvatarImagePath = settings.UserAvatarImagePath;
+        AgentAvatarPreset = string.IsNullOrWhiteSpace(settings.AgentAvatarPreset) ? "blue" : settings.AgentAvatarPreset;
+        UserAvatarPreset = string.IsNullOrWhiteSpace(settings.UserAvatarPreset) ? "teal" : settings.UserAvatarPreset;
     }
 
     [RelayCommand]
@@ -89,6 +93,8 @@ public partial class GlobalSettingsViewModel : ObservableObject
             UserAvatarLetter = string.IsNullOrWhiteSpace(UserAvatarLetter) ? "U" : UserAvatarLetter.Trim()[..1],
             AgentAvatarImagePath = AgentAvatarImagePath.Trim(),
             UserAvatarImagePath = UserAvatarImagePath.Trim(),
+            AgentAvatarPreset = AgentAvatarPreset,
+            UserAvatarPreset = UserAvatarPreset,
         };
         await _settingsRepository.SaveGlobalSettingsAsync(settings);
         StatusMessage = "Settings saved.";

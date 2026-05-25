@@ -75,10 +75,12 @@
                         </Border.Style>
                         <StackPanel MaxWidth="560">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                <!-- US-182/C-025: Agent avatar — image if configured, else letter -->
-                                <Border Width="28" Height="28" CornerRadius="14"
-                                        Background="#5B8AF5" Margin="0,0,6,0"
-                                        ClipToBounds="True">
+                                <!-- C-030/C-031: Agent avatar — person icon, colored by preset, custom image overrides -->
+                                <Border Width="30" Height="30" CornerRadius="15"
+                                        Background="{Binding DataContext.AgentAvatarColor,
+                                            RelativeSource={RelativeSource AncestorType=ListBox},
+                                            Converter={StaticResource StringToBrushConverter}}"
+                                        Margin="0,0,6,0" ClipToBounds="True">
                                     <Border.Style>
                                         <Style TargetType="Border">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -90,8 +92,10 @@
                                         </Style>
                                     </Border.Style>
                                     <Grid>
+                                        <!-- Custom image (when path is set) -->
                                         <Image Source="{Binding DataContext.AgentAvatarImagePath,
-                                                       RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                       RelativeSource={RelativeSource AncestorType=ListBox},
+                                                       Converter={StaticResource FilePathToImageSourceConverter}}"
                                                Stretch="UniformToFill">
                                             <Image.Style>
                                                 <Style TargetType="Image">
@@ -106,10 +110,10 @@
                                                 </Style>
                                             </Image.Style>
                                         </Image>
-                                        <TextBlock Text="T" Foreground="White" FontSize="12" FontWeight="Bold"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
+                                        <!-- C-031: Person silhouette (when no custom image) -->
+                                        <Viewbox Margin="4">
+                                            <Viewbox.Style>
+                                                <Style TargetType="Viewbox">
                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding DataContext.AgentAvatarImagePath,
@@ -119,14 +123,21 @@
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
+                                            </Viewbox.Style>
+                                            <Canvas Width="24" Height="24">
+                                                <Ellipse Canvas.Left="8" Canvas.Top="1" Width="8" Height="8" Fill="White" Opacity="0.9" />
+                                                <Path Fill="White" Opacity="0.9"
+                                                      Data="M 2,22 C 2,16 6,13.5 12,13.5 C 18,13.5 22,16 22,22 Z" />
+                                            </Canvas>
+                                        </Viewbox>
                                     </Grid>
                                 </Border>
-                                <!-- US-183/C-025: User avatar — image if configured, else letter -->
-                                <Border Width="28" Height="28" CornerRadius="14"
-                                        Background="#4A7A4A" Margin="0,0,6,0"
-                                        ClipToBounds="True">
+                                <!-- C-030/C-031: User avatar — same pattern with user color -->
+                                <Border Width="30" Height="30" CornerRadius="15"
+                                        Background="{Binding DataContext.UserAvatarColor,
+                                            RelativeSource={RelativeSource AncestorType=ListBox},
+                                            Converter={StaticResource StringToBrushConverter}}"
+                                        Margin="0,0,6,0" ClipToBounds="True">
                                     <Border.Style>
                                         <Style TargetType="Border">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -139,7 +150,8 @@
                                     </Border.Style>
                                     <Grid>
                                         <Image Source="{Binding DataContext.UserAvatarImagePath,
-                                                       RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                       RelativeSource={RelativeSource AncestorType=ListBox},
+                                                       Converter={StaticResource FilePathToImageSourceConverter}}"
                                                Stretch="UniformToFill">
                                             <Image.Style>
                                                 <Style TargetType="Image">
@@ -154,10 +166,9 @@
                                                 </Style>
                                             </Image.Style>
                                         </Image>
-                                        <TextBlock Text="U" Foreground="White" FontSize="12" FontWeight="Bold"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
+                                        <Viewbox Margin="4">
+                                            <Viewbox.Style>
+                                                <Style TargetType="Viewbox">
                                                     <Setter Property="Visibility" Value="Collapsed" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding DataContext.UserAvatarImagePath,
@@ -167,8 +178,13 @@
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
+                                            </Viewbox.Style>
+                                            <Canvas Width="24" Height="24">
+                                                <Ellipse Canvas.Left="8" Canvas.Top="1" Width="8" Height="8" Fill="White" Opacity="0.9" />
+                                                <Path Fill="White" Opacity="0.9"
+                                                      Data="M 2,22 C 2,16 6,13.5 12,13.5 C 18,13.5 22,16 22,22 Z" />
+                                            </Canvas>
+                                        </Viewbox>
                                     </Grid>
                                 </Border>
                                 <TextBlock Text="{Binding Role}"

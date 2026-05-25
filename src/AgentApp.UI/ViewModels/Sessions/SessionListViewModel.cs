@@ -62,7 +62,7 @@ public partial class SessionListViewModel : ObservableObject
         StatusMessage = "New session created.";
     }
 
-    // US-186: Rename selected session
+    // US-186: Rename selected session (full-view rename panel)
     [RelayCommand(CanExecute = nameof(CanRename))]
     private async Task RenameSessionAsync()
     {
@@ -74,6 +74,22 @@ public partial class SessionListViewModel : ObservableObject
     }
 
     private bool CanRename() => !string.IsNullOrWhiteSpace(RenameText) && SelectedSession is not null;
+
+    // C-032: Inline rename — commit the rename from sidebar TextBox
+    [RelayCommand]
+    private async Task CommitRenameAsync(SessionItemViewModel? item)
+    {
+        if (item is null || string.IsNullOrWhiteSpace(item.RenameBuffer)) return;
+        await _sessionService.RenameAsync(item.Id, item.RenameBuffer.Trim());
+        item.Name = item.RenameBuffer.Trim();
+        item.IsRenaming = false;
+    }
+
+    [RelayCommand]
+    private static void BeginRenameItem(SessionItemViewModel? item) => item?.BeginRename();
+
+    [RelayCommand]
+    private static void CancelRenameItem(SessionItemViewModel? item) => item?.CancelRename();
 
     // US-187: Archive selected session
     [RelayCommand]
@@ -107,18 +123,29 @@ public partial class SessionListViewModel : ObservableObject
     }
 }
 
-public class SessionItemViewModel
+public partial class SessionItemViewModel : ObservableObject
 {
     public Guid Id { get; }
-    public string Name { get; }
     public string ProjectLabel { get; }
     public string CreatedAt { get; }
+
+    [ObservableProperty] private string _name;
+    [ObservableProperty] private bool _isRenaming;
+    [ObservableProperty] private string _renameBuffer = string.Empty;
 
     public SessionItemViewModel(ChatSession session)
     {
         Id = session.Id;
-        Name = session.Name;
+        _name = session.Name;
         ProjectLabel = session.ProjectId.HasValue ? session.ProjectId.Value.ToString()[..8] : "(standalone)";
         CreatedAt = session.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm");
     }
+
+    public void BeginRename()
+    {
+        RenameBuffer = Name;
+        IsRenaming = true;
+    }
+
+    public void CancelRename() => IsRenaming = false;
 }

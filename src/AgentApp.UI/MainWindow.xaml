@@ -111,8 +111,9 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Session list (C-021: stripped-down, no filter/rename — those stay in full Sessions view) -->
-                <ListBox Grid.Row="1"
+                <!-- Session list — C-021/C-032: inline rename on double-click or context menu -->
+                <ListBox x:Name="SidebarSessionList"
+                         Grid.Row="1"
                          ItemsSource="{Binding SessionListViewModel.Sessions}"
                          SelectedItem="{Binding SessionListViewModel.SelectedSession}"
                          Background="Transparent" BorderThickness="0">
@@ -121,6 +122,8 @@
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Setter Property="Padding" Value="10,6" />
                             <Setter Property="Foreground" Value="#CCCCCC" />
+                            <EventSetter Event="MouseDoubleClick"
+                                         Handler="SessionItem_MouseDoubleClick" />
                             <Style.Triggers>
                                 <Trigger Property="IsSelected" Value="True">
                                     <Setter Property="Background" Value="#1E2A40" />
@@ -134,14 +137,57 @@
                     </ListBox.ItemContainerStyle>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <StackPanel>
-                                <TextBlock Text="{Binding Name}" FontSize="12"
-                                           TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding CreatedAt, Mode=OneTime}"
-                                           FontSize="10" Opacity="0.5" />
-                            </StackPanel>
+                            <Grid>
+                                <!-- Normal display -->
+                                <StackPanel>
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <TextBlock Text="{Binding Name}" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding CreatedAt, Mode=OneTime}"
+                                               FontSize="10" Opacity="0.5" />
+                                </StackPanel>
+                                <!-- C-032: Inline rename TextBox -->
+                                <TextBox Text="{Binding RenameBuffer, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="12" Background="#252540" BorderBrush="#5B8AF5"
+                                         KeyDown="RenameBox_KeyDown"
+                                         LostFocus="RenameBox_LostFocus">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+                            </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
+                    <ListBox.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="Rename"
+                                      Command="{Binding DataContext.SessionListViewModel.BeginRenameItemCommand,
+                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                      CommandParameter="{Binding DataContext.SessionListViewModel.SelectedSession,
+                                                         RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                            <MenuItem Header="Archive"
+                                      Command="{Binding DataContext.SessionListViewModel.ArchiveSessionCommand,
+                                                RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                      CommandParameter="{Binding DataContext.SessionListViewModel.SelectedSession,
+                                                         RelativeSource={RelativeSource AncestorType=ContextMenu}}" />
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
                 </ListBox>
             </Grid>
         </Border>

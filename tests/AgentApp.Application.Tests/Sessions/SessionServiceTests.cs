@@ -8,12 +8,14 @@ namespace AgentApp.Application.Tests.Sessions;
 public class SessionServiceTests
 {
     private readonly ISessionRepository _repository;
+    private readonly InMemorySessionMessageRepository _messageRepository;
     private readonly SessionService _sut;
 
     public SessionServiceTests()
     {
         _repository = new InMemorySessionRepository();
-        _sut = new SessionService(_repository);
+        _messageRepository = new InMemorySessionMessageRepository();
+        _sut = new SessionService(_repository, _messageRepository);
     }
 
     [Fact]
@@ -108,5 +110,31 @@ public class SessionServiceTests
 
         Assert.Contains(result, s => s.Id == active.Id);
         Assert.DoesNotContain(result, s => s.Id == archived.Id);
+    }
+
+    [Fact]
+    public async Task SaveMessageAsync_PersistsMessage()
+    {
+        var session = await _sut.StartStandaloneSessionAsync();
+        await _sut.SaveMessageAsync(session.Id, "User", "Hello world");
+
+        var messages = await _sut.GetMessagesAsync(session.Id);
+        Assert.Single(messages);
+        Assert.Equal("User", messages[0].Role);
+        Assert.Equal("Hello world", messages[0].Content);
+    }
+
+    [Fact]
+    public async Task GetMessagesAsync_ReturnsMessagesInOrder()
+    {
+        var session = await _sut.StartStandaloneSessionAsync();
+        await _sut.SaveMessageAsync(session.Id, "User", "First");
+        await Task.Delay(5);
+        await _sut.SaveMessageAsync(session.Id, "Tower", "Response");
+
+        var messages = await _sut.GetMessagesAsync(session.Id);
+        Assert.Equal(2, messages.Count);
+        Assert.Equal("First", messages[0].Content);
+        Assert.Equal("Response", messages[1].Content);
     }
 }

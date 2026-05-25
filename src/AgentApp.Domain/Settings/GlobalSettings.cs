@@ -13,4 +13,7 @@ public class GlobalSettings
     public string UserAvatarLetter { get; set; } = "U";
     public string AgentAvatarImagePath { get; set; } = string.Empty;
     public string UserAvatarImagePath { get; set; } = string.Empty;
+    // C-031: built-in color preset ("blue"|"purple"|"teal"|"amber")
+    public string AgentAvatarPreset { get; set; } = "blue";
+    public string UserAvatarPreset { get; set; } = "teal";
 }

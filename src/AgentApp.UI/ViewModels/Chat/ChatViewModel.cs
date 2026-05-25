@@ -26,23 +26,28 @@ public partial class ChatViewModel : ObservableObject
     [ObservableProperty]
     private string _activeProjectName = string.Empty;
 
-    // US-134: Current execution state
     [ObservableProperty]
     private string _currentState = "Chat";
 
-    // C-023/C-024: Current session tracking
+    // C-023/C-024: Session tracking
     [ObservableProperty]
     private string _currentSessionName = "New Session";
 
     private Guid? _currentSessionId;
     private bool _isFirstMessage = true;
 
-    // C-025: Avatar image paths (loaded from settings)
+    // C-025/C-031: Avatar configuration
     [ObservableProperty]
     private string _agentAvatarImagePath = string.Empty;
 
     [ObservableProperty]
     private string _userAvatarImagePath = string.Empty;
+
+    [ObservableProperty]
+    private string _agentAvatarColor = "#5B8AF5";   // C-031: preset color
+
+    [ObservableProperty]
+    private string _userAvatarColor = "#4A7A4A";
 
     // Project confirmation (US-153)
     private ProjectConfirmCommand? _pendingProjectConfirm;
@@ -74,10 +79,11 @@ public partial class ChatViewModel : ObservableObject
 
     private async Task InitializeAsync()
     {
-        // Load avatar image paths from settings
         var settings = await _settingsRepository.GetGlobalSettingsAsync();
         AgentAvatarImagePath = settings.AgentAvatarImagePath;
         UserAvatarImagePath = settings.UserAvatarImagePath;
+        AgentAvatarColor = PresetColor(settings.AgentAvatarPreset, "#5B8AF5");
+        UserAvatarColor = PresetColor(settings.UserAvatarPreset, "#4A7A4A");
 
         var result = await _presenter.InitializeAsync();
         if (result.InitialMessage is not null)
@@ -92,7 +98,6 @@ public partial class ChatViewModel : ObservableObject
         var text = UserInput.Trim();
         UserInput = string.Empty;
 
-        // C-004: Show user message immediately, before processing
         Messages.Add(new ChatTurnViewModel
         {
             Role = "User",
@@ -102,13 +107,12 @@ public partial class ChatViewModel : ObservableObject
 
         IsBusy = true;
 
-        // C-023/C-024: On first message, create a session and generate a name
+        // C-023/C-024: On first message, create session and name it
         if (_isFirstMessage)
         {
             _isFirstMessage = false;
             var session = await _sessionService.StartStandaloneSessionAsync();
             _currentSessionId = session.Id;
-            // Generate name from first message words (C-024 — dummy name from message)
             var nameWords = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             var draftName = string.Join(" ", nameWords.Take(5));
             if (draftName.Length > 40) draftName = draftName[..40];
@@ -119,15 +123,44 @@ public partial class ChatViewModel : ObservableObject
             }
         }
 
+        // C-029: Save user message
+        if (_currentSessionId.HasValue)
+            await _sessionService.SaveMessageAsync(_currentSessionId.Value, "User", text);
+
         var result = await _presenter.SendAsync(text);
 
         foreach (var command in result.Commands)
             await HandleCommandAsync(command);
 
         if (!string.IsNullOrWhiteSpace(result.DisplayText))
+        {
             AddAgentMessage(result.DisplayText);
+            // C-029: Save agent message
+            if (_currentSessionId.HasValue)
+                await _sessionService.SaveMessageAsync(_currentSessionId.Value, "Tower", result.DisplayText);
+        }
 
         IsBusy = false;
+    }
+
+    // C-029: Load a session's messages (called when user selects session in sidebar)
+    public async Task LoadSessionAsync(Guid sessionId, string sessionName)
+    {
+        _currentSessionId = sessionId;
+        _isFirstMessage = false;
+        CurrentSessionName = sessionName;
+        Messages.Clear();
+
+        var messages = await _sessionService.GetMessagesAsync(sessionId);
+        foreach (var msg in messages)
+        {
+            Messages.Add(new ChatTurnViewModel
+            {
+                Role = msg.Role,
+                Content = msg.Content,
+                Timestamp = msg.Timestamp.LocalDateTime.ToString("HH:mm")
+            });
+        }
     }
 
     // ── Project confirmation (US-153) ────────────────────────────────────────
@@ -136,10 +169,8 @@ public partial class ChatViewModel : ObservableObject
     private async Task ConfirmProjectAsync()
     {
         if (_pendingProjectConfirm is null) return;
-
         IsBusy = true;
         HasProjectConfirmPending = false;
-
         var (projectName, message) = await _presenter.ConfirmProjectAsync(_pendingProjectConfirm);
         ActiveProjectName = projectName;
         _pendingProjectConfirm = null;
@@ -161,11 +192,9 @@ public partial class ChatViewModel : ObservableObject
     private async Task ApprovePermissionAsync()
     {
         if (_pendingPermissionRequest is null) return;
-
         var path = _pendingPermissionRequest.Path;
         HasPermissionRequestPending = false;
         _pendingPermissionRequest = null;
-
         var result = await _presenter.GrantPermissionAsync(path);
         foreach (var cmd in result.Commands) await HandleCommandAsync(cmd);
         if (!string.IsNullOrWhiteSpace(result.DisplayText))
@@ -189,13 +218,11 @@ public partial class ChatViewModel : ObservableObject
             case FolderSelectCommand folderSelect:
                 await HandleFolderSelectAsync(folderSelect);
                 break;
-
             case ProjectConfirmCommand projectConfirm:
                 _pendingProjectConfirm = projectConfirm;
                 PendingProjectSummary = $"Create project \"{projectConfirm.ProjectName}\" — {projectConfirm.ProjectIntent}";
                 HasProjectConfirmPending = true;
                 break;
-
             case PathPermissionRequestCommand permissionRequest:
                 _pendingPermissionRequest = permissionRequest;
                 PendingPermissionSummary = $"Tower is requesting read access to:\n{permissionRequest.Path}\n\nReason: {permissionRequest.Reason}";
@@ -209,7 +236,6 @@ public partial class ChatViewModel : ObservableObject
     private async Task HandleFolderSelectAsync(FolderSelectCommand command)
     {
         var dialog = new OpenFolderDialog { Title = command.Reason };
-
         if (dialog.ShowDialog() != true)
         {
             var cancelResult = await _presenter.HandleFolderCancelledAsync();
@@ -217,7 +243,6 @@ public partial class ChatViewModel : ObservableObject
                 AddAgentMessage(cancelResult.DisplayText);
             return;
         }
-
         var selectedPath = dialog.FolderName;
         var continueResult = await _presenter.HandleFolderSelectedAsync(selectedPath);
         foreach (var nestedCmd in continueResult.Commands)
@@ -237,4 +262,14 @@ public partial class ChatViewModel : ObservableObject
     }
 
     private bool CanSend() => !IsBusy && !string.IsNullOrWhiteSpace(UserInput);
+
+    // C-031: Map preset name to hex color
+    private static string PresetColor(string preset, string defaultColor) => preset switch
+    {
+        "blue"   => "#5B8AF5",
+        "purple" => "#A855F7",
+        "teal"   => "#10B981",
+        "amber"  => "#F59E0B",
+        _        => defaultColor
+    };
 }

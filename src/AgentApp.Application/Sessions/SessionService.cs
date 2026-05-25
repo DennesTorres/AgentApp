@@ -7,12 +7,14 @@ namespace AgentApp.Application.Sessions;
 public class SessionService
 {
     private readonly ISessionRepository _repository;
+    private readonly ISessionMessageRepository _messageRepository;
 
     public event EventHandler<ChatSession>? SessionCreated;
 
-    public SessionService(ISessionRepository repository)
+    public SessionService(ISessionRepository repository, ISessionMessageRepository messageRepository)
     {
         _repository = repository;
+        _messageRepository = messageRepository;
     }
 
     public async Task<ChatSession> StartStandaloneSessionAsync()
@@ -65,4 +67,14 @@ public class SessionService
         session.Archive();
         await _repository.SaveAsync(session);
     }
+
+    // C-029: Message persistence
+    public async Task SaveMessageAsync(Guid sessionId, string role, string content)
+    {
+        var message = SessionMessage.Create(sessionId, role, content);
+        await _messageRepository.SaveAsync(message);
+    }
+
+    public Task<IReadOnlyList<SessionMessage>> GetMessagesAsync(Guid sessionId)
+        => _messageRepository.GetBySessionIdAsync(sessionId);
 }

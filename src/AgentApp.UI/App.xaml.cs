@@ -53,6 +53,7 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ISettingsRepository>(_ => new JsonSettingsRepository(appDataFolder));
         services.AddSingleton<IProjectSettingsRepository>(_ => new JsonProjectSettingsRepository(appDataFolder));
         services.AddSingleton<ISessionRepository>(_ => new JsonSessionRepository(appDataFolder));
+        services.AddSingleton<ISessionMessageRepository>(_ => new JsonSessionMessageRepository(appDataFolder));
         services.AddSingleton<IKnowledgeRecordRepository>(_ => new JsonKnowledgeRecordRepository(appDataFolder));
         services.AddSingleton<IScheduleRepository>(_ => new JsonScheduleRepository(appDataFolder));
         services.AddSingleton<IProjectSwitchHandler, NullProjectSwitchHandler>();
