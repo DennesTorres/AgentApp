@@ -11,7 +11,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- US-188/US-019: Filter toolbar -->
@@ -48,7 +47,18 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
+
+                        <!-- Normal view: double-click to rename (C-032, C-052) -->
+                        <StackPanel Grid.Column="0" MouseLeftButtonDown="NamePanel_MouseLeftButtonDown">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
                             <TextBlock FontSize="11" Opacity="0.6">
                                 <Run Text="Project: " />
@@ -57,6 +67,26 @@
                                 <Run Text="{Binding CreatedAt, Mode=OneTime}" />
                             </TextBlock>
                         </StackPanel>
+
+                        <!-- Inline rename TextBox: visible when IsRenaming; auto-focused via code-behind (C-052) -->
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding RenameBuffer, UpdateSourceTrigger=PropertyChanged}"
+                                 IsVisibleChanged="RenameTextBox_IsVisibleChanged"
+                                 KeyDown="RenameTextBox_KeyDown"
+                                 LostFocus="RenameTextBox_LostFocus"
+                                 VerticalAlignment="Center" Margin="0,0,4,0">
+                            <TextBox.Style>
+                                <Style TargetType="TextBox">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBox.Style>
+                        </TextBox>
+
                         <!-- US-187: Archive -->
                         <Button Grid.Column="3" Content="Archive"
                                 Command="{Binding DataContext.ArchiveSessionCommand,
@@ -68,22 +98,8 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <!-- US-186: Rename selected session -->
-        <Grid Grid.Row="3" Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="Rename selected:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#888" />
-            <TextBox Grid.Column="1" Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}"
-                     MinHeight="30" Margin="0,0,6,0" />
-            <Button Grid.Column="2" Content="Rename" Command="{Binding RenameSessionCommand}"
-                    MinWidth="80" MinHeight="30" />
-        </Grid>
-
         <!-- Status -->
-        <TextBlock Grid.Row="4" Text="{Binding StatusMessage}"
+        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}"
                    Foreground="#A0C4FF" FontSize="12" Opacity="0.8" />
     </Grid>
 </UserControl>
