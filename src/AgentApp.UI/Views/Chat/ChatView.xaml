@@ -11,13 +11,14 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- US-157: Active project indicator -->
+        <!-- US-157: Active project indicator / US-134: Execution state -->
         <Border Grid.Row="0" Background="#1E1E2E" Padding="12,6">
             <Border.Style>
                 <Style TargetType="Border">
-                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Setter Property="Visibility" Value="Visible" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding ActiveProjectName}" Value="">
                             <Setter Property="Visibility" Value="Collapsed" />
@@ -25,11 +26,22 @@
                     </Style.Triggers>
                 </Style>
             </Border.Style>
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Project: " Foreground="#888" FontSize="12" />
-                <TextBlock Text="{Binding ActiveProjectName}" Foreground="#A0C4FF"
-                           FontSize="12" FontWeight="SemiBold" />
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="Project: " Foreground="#888" FontSize="12" />
+                    <TextBlock Text="{Binding ActiveProjectName}" Foreground="#A0C4FF"
+                               FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <TextBlock Text="State: " Foreground="#888" FontSize="12" />
+                    <TextBlock Text="{Binding CurrentState}" Foreground="#B5CEA8"
+                               FontSize="12" FontWeight="SemiBold" />
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Message list (US-151: agent persona) -->
@@ -63,9 +75,12 @@
                         </Border.Style>
                         <StackPanel MaxWidth="560">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                <!-- Tower avatar (US-151) -->
-                                <Border Width="22" Height="22" CornerRadius="11"
-                                        Background="#5B8AF5" Margin="0,0,6,0">
+                                <!-- C-030/C-031: Agent avatar — person icon, colored by preset, custom image overrides -->
+                                <Border Width="30" Height="30" CornerRadius="15"
+                                        Background="{Binding DataContext.AgentAvatarColor,
+                                            RelativeSource={RelativeSource AncestorType=ListBox},
+                                            Converter={StaticResource StringToBrushConverter}}"
+                                        Margin="0,0,6,0" ClipToBounds="True">
                                     <Border.Style>
                                         <Style TargetType="Border">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -76,8 +91,100 @@
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
-                                    <TextBlock Text="T" Foreground="White" FontSize="11" FontWeight="Bold"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Grid>
+                                        <!-- Custom image (when path is set) -->
+                                        <Image Source="{Binding DataContext.AgentAvatarImagePath,
+                                                       RelativeSource={RelativeSource AncestorType=ListBox},
+                                                       Converter={StaticResource FilePathToImageSourceConverter}}"
+                                               Stretch="UniformToFill">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.AgentAvatarImagePath,
+                                                            RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                            Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
+                                        <!-- C-044: Shape avatar (when no custom image) — shape chosen by AgentAvatarShape -->
+                                        <Viewbox Margin="3">
+                                            <Viewbox.Style>
+                                                <Style TargetType="Viewbox">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.AgentAvatarImagePath,
+                                                            RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                            Value="">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Viewbox.Style>
+                                            <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                                  Data="{Binding DataContext.AgentAvatarShape,
+                                                         RelativeSource={RelativeSource AncestorType=ListBox},
+                                                         Converter={StaticResource ShapeToPathDataConverter}}" />
+                                        </Viewbox>
+                                    </Grid>
+                                </Border>
+                                <!-- C-030/C-031: User avatar — same pattern with user color -->
+                                <Border Width="30" Height="30" CornerRadius="15"
+                                        Background="{Binding DataContext.UserAvatarColor,
+                                            RelativeSource={RelativeSource AncestorType=ListBox},
+                                            Converter={StaticResource StringToBrushConverter}}"
+                                        Margin="0,0,6,0" ClipToBounds="True">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <Grid>
+                                        <Image Source="{Binding DataContext.UserAvatarImagePath,
+                                                       RelativeSource={RelativeSource AncestorType=ListBox},
+                                                       Converter={StaticResource FilePathToImageSourceConverter}}"
+                                               Stretch="UniformToFill">
+                                            <Image.Style>
+                                                <Style TargetType="Image">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.UserAvatarImagePath,
+                                                            RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                            Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Image.Style>
+                                        </Image>
+                                        <!-- C-044: Shape avatar (user) -->
+                                        <Viewbox Margin="3">
+                                            <Viewbox.Style>
+                                                <Style TargetType="Viewbox">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.UserAvatarImagePath,
+                                                            RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                                            Value="">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Viewbox.Style>
+                                            <Path Fill="White" Opacity="0.9" Width="24" Height="24" Stretch="Uniform"
+                                                  Data="{Binding DataContext.UserAvatarShape,
+                                                         RelativeSource={RelativeSource AncestorType=ListBox},
+                                                         Converter={StaticResource ShapeToPathDataConverter}}" />
+                                        </Viewbox>
+                                    </Grid>
                                 </Border>
                                 <TextBlock Text="{Binding Role}"
                                            FontSize="10" FontWeight="Bold"
@@ -94,8 +201,7 @@
         </ListBox>
 
         <!-- US-153: Project confirm panel -->
-        <Border Grid.Row="2" Background="#1A2A1A" Padding="12,8" Margin="8,0,8,4"
-                CornerRadius="6">
+        <Border Grid.Row="2" Background="#1A2A1A" Padding="12,8" Margin="8,0,8,4" CornerRadius="6">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -124,17 +230,52 @@
             </Grid>
         </Border>
 
+        <!-- US-163: Path permission request panel -->
+        <Border Grid.Row="3" Background="#2A1A2A" Padding="12,8" Margin="8,0,8,4" CornerRadius="6">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPermissionRequestPending}" Value="True">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding PendingPermissionSummary}"
+                           TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="#D8A8D8" FontSize="12" />
+                <Button Grid.Column="1" Content="Allow"
+                        Command="{Binding ApprovePermissionCommand}"
+                        Margin="8,0,4,0" MinWidth="70" MinHeight="30" />
+                <Button Grid.Column="2" Content="Deny"
+                        Command="{Binding DenyPermissionCommand}"
+                        MinWidth="70" MinHeight="30" />
+            </Grid>
+        </Border>
+
         <!-- Input row -->
-        <Grid Grid.Row="3" Margin="8,0,8,8">
+        <Grid Grid.Row="4" Margin="8,0,8,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBox Grid.Column="0"
+            <TextBox x:Name="InputTextBox"
+                     Grid.Column="0"
                      Text="{Binding UserInput, UpdateSourceTrigger=PropertyChanged}"
                      Margin="0,0,6,0"
-                     VerticalContentAlignment="Center"
                      MinHeight="36"
+                     MaxHeight="120"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     PreviewKeyDown="InputTextBox_PreviewKeyDown"
                      IsEnabled="{Binding IsBusy, Converter={StaticResource BooleanInverseConverter}}" />
             <Button Grid.Column="1"
                     Content="Send"

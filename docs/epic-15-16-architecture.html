@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AgentApp — Epic 15/16 Architecture</title>
+  <style>
+    body { background: #0f0f17; color: #d4d4d4; font-family: "Cascadia Code","Consolas",monospace; padding: 2rem; }
+    h1 { color: #9cdcfe; margin-bottom: 0.2rem; }
+    h2 { color: #569cd6; font-size: 0.9rem; font-weight: normal; margin-top: 0; margin-bottom: 1.5rem; }
+    h3 { color: #9cdcfe; margin-bottom: 0.5rem; }
+    pre { line-height: 1.5; font-size: 13px; }
+    .ui  { color: #9cdcfe; }
+    .app { color: #dcdcaa; }
+    .inf { color: #ce9178; }
+    .ext { color: #808080; }
+    .dim { color: #444; }
+    .arr { color: #569cd6; }
+  </style>
+</head>
+<body>
+<h1>AgentApp — Epic 15 &amp; 16 Architecture</h1>
+<h2>Updated after US-169–173 · ChatPresenter · native tool-calling · ActionProvider registry · 2026-05-21</h2>
+
+<h3>Component Map</h3>
+<pre>
+<span class="dim">┌─────────────────────────────────────────── UI ─────────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>                                                                                                      <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">┌──────────────────────────┐</span>   <span class="ui">┌──────────────────────┐</span>   <span class="ui">┌──────────────────────┐</span>              <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│      ChatViewModel       │</span>   <span class="ui">│ ProjectListViewModel │</span>   <span class="ui">│  MainWindowViewModel │</span>              <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│                          │</span>   <span class="ui">│  project list        │</span>   <span class="ui">│  tab switching       │</span>              <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  send · confirm project  │</span>   <span class="ui">└──────────────────────┘</span>   <span class="ui">└──────────────────────┘</span>              <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  approve permission      │</span>                                                                        <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  folder select dialog    │</span>   <span class="ui">┌──────────────────────┐</span>                                          <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│                          │</span>   <span class="ui">│ ApiKeySettingsVM     │</span>                                          <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  1 dep → ChatPresenter   │</span>   <span class="ui">└──────────────────────┘</span>                                          <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">└────────────┬─────────────┘</span>                                                                        <span class="dim">│</span>
+<span class="dim">│</span>               <span class="arr">│</span>                                                                                      <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">┌────────────▼─────────────┐</span>                                                                        <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│      ChatPresenter       │</span>  pass-through today · owns message display format definition           <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">│  future: markdown render │</span>  future: code block formatting · typing indicators                    <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ui">└────────────┬─────────────┘</span>                                                                        <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
+               <span class="arr">│</span>
+<span class="dim">┌────────────────────────────────────── Application ──────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>              <span class="arr">▼</span>                                                                                        <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">┌─────────────────────────────────── ChatOrchestrator.SendAsync ──────────────────────────────┐</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│                                                                                              │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ┌──────┐                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  history.Add(userMessage)                                                     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  ┌─────────────────────────────────────────────────────────────────────┐     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │ core │     │  AgentContextService.GetSystemMessage()                              │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  loops: NoProjectProvider · ActiveProjectProvider                   │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │         · ExecutionStateProvider → system message                   │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     └─────────────────────────────────────────────────────────────────────┘     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  ┌─────────────────────────────────────────────────────────────────────┐     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  AIFunction tools — for each registered tool:                       │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │    read_file · write_file · list_directory                          │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │    closure: FileSessionGate gate-check → provider → JSON result     │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     └─────────────────────────────────────────────────────────────────────┘     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  ┌─────────────────────────────────────────────────────────────────────┐     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  IChatClient.CompleteAsync(messages, tools) ──────────► Azure AI    │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  ┌ ─ model returns tool call ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐  │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │   CapabilityDispatcher → provider → result injected back          │  │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     │  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘  │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │     └─────────────────────────────────────────────────────────────────────┘     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  extract JSON tail from message → ChatCommand[]                               │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  history.Add(assistantMessage)                                                │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      ├──►  ActionProviderRegistry.DispatchAsync(commands) → unhandledCommands[]         │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      │                                                                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  │      └──►  ┌─────────────────────────────────────────────────────────────────────┐     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  └──────┘     │  ResponsePreparationService.Prepare(humanText)                      │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│               │  formats human-readable portion → displayText                       │     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│               └─────────────────────────────────────────────────────────────────────┘     │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│                                                                                              │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  return ChatServiceResult(displayText, unhandledCommands)                                   │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│                                                                                              │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ── support services ──────────────────────────────────────────────────────────────────  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  FileSessionGate · ProjectService · OnboardingService · ScaffoldService                    │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">│  ProviderRegistry: AzureChatClientProvider · FileReadProvider · FileWriteProvider · DirList  │</span>   <span class="dim">│</span>
+<span class="dim">│</span>  <span class="app">└──────────────────────────────────────────────────────────────────────────────────────────────┘</span>   <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
+               <span class="arr">│</span>
+<span class="dim">┌───────────────────────────────────── Infrastructure ────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>              <span class="arr">▼</span>                                                                                        <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">┌────────────────────────────┐</span>   <span class="inf">┌──────────────────────────────────────────────────────────┐</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">│  AzureClientFactory        │</span>   <span class="inf">│  JsonProjectRepository · JsonSettingsRepository          │</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">│  WindowsCredentialManager  │</span>   <span class="inf">│  ScaffoldService · FileReadProvider                      │</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">│  UseFunctionInvocation()   │</span>   <span class="inf">│  FileWriteProvider · DirectoryListProvider               │</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="inf">└────────────────────────────┘</span>   <span class="inf">└──────────────────────────────────────────────────────────┘</span>  <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
+               <span class="arr">│</span>
+<span class="dim">┌────────────────────────────────────── External ─────────────────────────────────────────────────────┐</span>
+<span class="dim">│</span>              <span class="arr">▼</span>                                                                                        <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ext">┌──────────────────────────────────────────────────────────────────────────────────────────┐</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ext">│  Azure AI · Kimi-K2.5 · msdnfoundry.services.ai.azure.com/models                        │</span>  <span class="dim">│</span>
+<span class="dim">│</span>  <span class="ext">└──────────────────────────────────────────────────────────────────────────────────────────┘</span>  <span class="dim">│</span>
+<span class="dim">└─────────────────────────────────────────────────────────────────────────────────────────────────────┘</span>
+</pre>
+
+<h3>SendAsync — Message Flow Through the Pipeline</h3>
+<pre>
+  <span class="ui">ChatViewModel</span>  <span class="ui">ChatPresenter</span>  <span class="app">│</span>  <span class="app">ChatOrchestrator.SendAsync</span>                             <span class="ext">│ Azure AI</span>
+  <span class="arr">──────────────────────────────────────────────────────────────────────────────────────────────────────</span>
+        <span class="arr">│</span>               <span class="arr">│</span>          <span class="app">│</span>                                                        <span class="ext">│</span>
+        <span class="arr">─ SendAsync ────►</span>          <span class="app">│</span>                                                        <span class="ext">│</span>
+                        <span class="arr">─ SendAsync ►</span>                                                        <span class="ext">│</span>
+                                   <span class="app">│  [1] history.Add(userMessage)</span>                          <span class="ext">│</span>
+                                   <span class="app">│</span>                                                        <span class="ext">│</span>
+                                   <span class="app">│  [2] build AIFunction tools</span>                           <span class="ext">│</span>
+                                   <span class="app">│      ┌─────────────────────────────────────────────┐</span>  <span class="ext">│</span>
+                                   <span class="app">│      │ read_file  write_file  list_directory       │</span>  <span class="ext">│</span>
+                                   <span class="app">│      │ each wrapper registers a closure that will:  │</span>  <span class="ext">│</span>
+                                   <span class="app">│      │   • FileSessionGate.CanRead/CanWrite()       │</span>  <span class="ext">│</span>
+                                   <span class="app">│      │   • CapabilityDispatcher → FileReadProvider  │</span>  <span class="ext">│</span>
+                                   <span class="app">│      │     / FileWriteProvider / DirListProvider   │</span>  <span class="ext">│</span>
+                                   <span class="app">│      │   • Filter 1 (pass-through for now)         │</span>  <span class="ext">│</span>
+                                   <span class="app">│      │   • return JSON result string to model      │</span>  <span class="ext">│</span>
+                                   <span class="app">│      └─────────────────────────────────────────────┘</span>  <span class="ext">│</span>
+                                   <span class="app">│</span>                                                        <span class="ext">│</span>
+                                   <span class="app">│  [3] CapabilityDispatcher.SendAsync(history, tools)</span>   <span class="ext">│</span>
+                                   <span class="arr">│      ──────────────────────────────────────────────────►</span>
+                                   <span class="app">│          FunctionInvokingChatClient middleware         <span class="ext">│</span></span>
+                                   <span class="app">│          ┌──────── tool call loop ────────────────┐  <span class="ext">│</span></span>
+                                   <span class="app">│          │ model requests a tool                  │  <span class="ext">│</span></span>
+                                   <span class="app">│          │ middleware intercepts mid-generation    │  <span class="ext">│</span></span>
+                                   <span class="app">│          │ invokes the AIFunction closure [2]      │  <span class="ext">│</span></span>
+                                   <span class="app">│          │ injects JSON result back into context   │  <span class="ext">│</span></span>
+                                   <span class="app">│          │ model continues  ···  (0 to N times)   │  <span class="ext">│</span></span>
+                                   <span class="app">│          └────────────────────────────────────────┘  <span class="ext">│</span></span>
+                                   <span class="arr">│      ◄── final text response ──────────────────────────</span>
+                                   <span class="app">│</span>                                                        <span class="ext">│</span>
+                                   <span class="app">│  [4] ResponsePreparationService.Prepare(rawText)</span>      <span class="ext">│</span>
+                                   <span class="app">│        IChatCommandParser.Parse()</span>                     <span class="ext">│</span>
+                                   <span class="app">│          → strip [MARKER:{...}] from text</span>             <span class="ext">│</span>
+                                   <span class="app">│          → parse JSON payloads → ChatCommand[]</span>        <span class="ext">│</span>
+                                   <span class="app">│        returns (displayText, commands[])</span>              <span class="ext">│</span>
+                                   <span class="app">│</span>                                                        <span class="ext">│</span>
+                                   <span class="app">│  [5] ActionProviderRegistry.DispatchAsync(commands)</span>   <span class="ext">│</span>
+                                   <span class="app">│        for each command → find matching IActionProvider</span><span class="ext">│</span>
+                                   <span class="app">│          found  → HandleAsync() (future providers)     </span><span class="ext">│</span>
+                                   <span class="app">│          none   → add to unhandled list                </span><span class="ext">│</span>
+                                   <span class="app">│        returns unhandledCommands[]</span>                    <span class="ext">│</span>
+                                   <span class="app">│</span>                                                        <span class="ext">│</span>
+                                   <span class="app">│  [6] history.Add(assistantMessage)</span>                    <span class="ext">│</span>
+                                   <span class="app">│</span>                                                        <span class="ext">│</span>
+                        <span class="arr">◄── ChatServiceResult ────</span>                                        <span class="ext">│</span>
+        <span class="arr">◄── ChatServiceResult ──</span>                                                           <span class="ext">│</span>
+
+  <span class="dim">ChatServiceResult = { DisplayText: string, UnhandledCommands: ChatCommand[] }</span>
+</pre>
+
+<h3>Unhandled Commands — ViewModel Dispatch</h3>
+<pre>
+  <span class="dim">Commands returned from [5] are dispatched by ChatViewModel:</span>
+
+    <span class="ui">FolderSelectCommand     </span><span class="arr">──► open folder dialog ──► HandleFolderSelectedAsync(path) ────►</span>
+                                                     <span class="app">save SourceControlRoot setting</span>
+                                                     <span class="app">SendAsync([FOLDER_SELECT_RESULT])</span>
+                                                 <span class="arr">◄── ChatServiceResult ──────────────</span>
+
+    <span class="ui">ProjectConfirmCommand   </span><span class="arr">──► show confirm UI</span>
+      user confirms        <span class="arr">──────────────────────► ConfirmProjectAsync(cmd) ──────────►</span>
+                                                     <span class="app">ProjectService.Create()</span>
+                                                     <span class="app">ScaffoldService.CreateScaffold()</span>
+                                                     <span class="app">FileSessionGate.SetProjectRoots()</span>
+                                                 <span class="arr">◄── (projectName, message) ─────────</span>
+
+    <span class="ui">PathPermissionRequest   </span><span class="arr">──► show permission UI</span>
+      user approves        <span class="arr">──────────────────────► GrantPermissionAsync(path) ────────►</span>
+                                                     <span class="app">FileSessionGate.GrantReadAccess()</span>
+                                                     <span class="app">SendAsync([PATH_ACCESS_GRANTED])</span>
+                                                 <span class="arr">◄── ChatServiceResult ──────────────</span>
+
+  <span class="dim">blue = UI · yellow = Application · orange = Infrastructure · grey = External</span>
+</pre>
+</body>
+</html>

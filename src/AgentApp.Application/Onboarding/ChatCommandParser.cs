@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
@@ -7,36 +6,23 @@ namespace AgentApp.Application.Onboarding;
 
 public class ChatCommandParser : IChatCommandParser
 {
-    private static readonly Regex FolderSelectPattern =
-        new(@"\[FOLDER_SELECT:(\{[^}]*\})\]", RegexOptions.Compiled);
-
-    private static readonly Regex ProjectConfirmPattern =
-        new(@"\[PROJECT_CONFIRM:(\{[^}]*\})\]", RegexOptions.Compiled);
+    private static readonly Regex CommandPattern =
+        new(@"\[(?<cmd>FOLDER_SELECT|PROJECT_CONFIRM|PATH_PERMISSION_REQUEST):(?<json>\{[^}]*\})\]",
+            RegexOptions.Compiled);
 
     public (string CleanText, IReadOnlyList<ChatCommand> Commands) Parse(string text)
     {
         var commands = new List<ChatCommand>();
-        var cleaned = text;
 
-        cleaned = FolderSelectPattern.Replace(cleaned, match =>
+        var cleaned = CommandPattern.Replace(text, match =>
         {
+            var cmd = match.Groups["cmd"].Value;
+            var json = match.Groups["json"].Value;
             try
             {
-                var json = JsonSerializer.Deserialize<FolderSelectPayload>(match.Groups[1].Value);
-                if (json is not null)
-                    commands.Add(new FolderSelectCommand(json.reason ?? string.Empty));
-            }
-            catch { /* malformed — skip */ }
-            return string.Empty;
-        });
-
-        cleaned = ProjectConfirmPattern.Replace(cleaned, match =>
-        {
-            try
-            {
-                var json = JsonSerializer.Deserialize<ProjectConfirmPayload>(match.Groups[1].Value);
-                if (json is not null)
-                    commands.Add(new ProjectConfirmCommand(json.name ?? string.Empty, json.intent ?? string.Empty));
+                var command = ParseCommand(cmd, json);
+                if (command is not null)
+                    commands.Add(command);
             }
             catch { /* malformed — skip */ }
             return string.Empty;
@@ -45,6 +31,19 @@ public class ChatCommandParser : IChatCommandParser
         return (cleaned, commands);
     }
 
+    private static ChatCommand? ParseCommand(string commandName, string json) =>
+        commandName switch
+        {
+            "FOLDER_SELECT" => System.Text.Json.JsonSerializer.Deserialize<FolderSelectPayload>(json) is { } p
+                ? new FolderSelectCommand(p.reason ?? string.Empty) : null,
+            "PROJECT_CONFIRM" => System.Text.Json.JsonSerializer.Deserialize<ProjectConfirmPayload>(json) is { } p
+                ? new ProjectConfirmCommand(p.name ?? string.Empty, p.intent ?? string.Empty) : null,
+            "PATH_PERMISSION_REQUEST" => System.Text.Json.JsonSerializer.Deserialize<PathPermissionPayload>(json) is { } p
+                ? new PathPermissionRequestCommand(p.path ?? string.Empty, p.reason ?? string.Empty) : null,
+            _ => null
+        };
+
     private record FolderSelectPayload(string? reason);
     private record ProjectConfirmPayload(string? name, string? intent);
+    private record PathPermissionPayload(string? path, string? reason);
 }

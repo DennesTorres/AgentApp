@@ -26,9 +26,13 @@ public class AzureChatClientProvider : IProvider
             t.Role == ChatTurnRole.User ? ChatRole.User : ChatRole.Assistant,
             t.Content)).ToList();
 
+        ChatOptions? options = null;
+        if (request.Payload.TryGetValue("tools", out var toolsObj) && toolsObj is IList<AITool> tools)
+            options = new ChatOptions { Tools = [.. tools] };
+
         try
         {
-            var response = await _chatClient.GetResponseAsync(messages,
+            var response = await _chatClient.GetResponseAsync(messages, options,
                 cancellationToken: cancellationToken);
             var text = response.Text ?? string.Empty;
             return ProviderResponse.Ok(request.RequestId,

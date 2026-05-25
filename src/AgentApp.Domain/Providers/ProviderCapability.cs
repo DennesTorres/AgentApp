@@ -5,5 +5,8 @@ public enum ProviderCapability
     ModelCall,
     CredentialAccess,
     EmbeddingSearch,
-    ExecutionState
+    ExecutionState,
+    FileRead,
+    FileWrite,
+    DirectoryList
 }

@@ -63,4 +63,15 @@ public class ChatCommandParserTests
         var (text, _) = parser.Parse(input);
         Assert.Equal(string.Empty, text.Trim());
     }
+
+    [Fact]
+    public void Parse_PathPermissionRequestCommand_ExtractsPathAndReason()
+    {
+        var parser = BuildParser();
+        var (_, commands) = parser.Parse("[PATH_PERMISSION_REQUEST:{\"path\":\"/docs\",\"reason\":\"Need readme\"}]");
+        Assert.Single(commands);
+        var cmd = Assert.IsType<PathPermissionRequestCommand>(commands[0]);
+        Assert.Equal("/docs", cmd.Path);
+        Assert.Equal("Need readme", cmd.Reason);
+    }
 }
