@@ -75,4 +75,41 @@ public class FileSessionGateTests
         Assert.True(gate.CanWrite(@"c:\agent\file.txt"));
         Assert.True(gate.CanRead(@"c:\code\src\file.cs"));
     }
+
+    // US-190: bypass mode
+    [Fact]
+    public void SetBypassMode_True_CanReadAnyPath()
+    {
+        var gate = new FileSessionGate();
+        gate.SetBypassMode(true);
+
+        Assert.True(gate.CanRead(@"C:\Windows\System32\anything.dll"));
+    }
+
+    [Fact]
+    public void SetBypassMode_True_CanWriteAnyPath()
+    {
+        var gate = new FileSessionGate();
+        gate.SetBypassMode(true);
+
+        Assert.True(gate.CanWrite(@"C:\Windows\System32\anything.dll"));
+    }
+
+    [Fact]
+    public void IsBypassMode_DefaultFalse()
+    {
+        var gate = new FileSessionGate();
+
+        Assert.False(gate.IsBypassMode);
+    }
+
+    [Fact]
+    public void SetBypassMode_False_RestoresNormalBehaviour()
+    {
+        var gate = BuildGate(@"C:\agent", @"C:\code");
+        gate.SetBypassMode(true);
+        gate.SetBypassMode(false);
+
+        Assert.False(gate.CanRead(@"C:\Windows\System32\bad.dll"));
+    }
 }

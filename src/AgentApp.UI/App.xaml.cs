@@ -128,7 +128,8 @@ public partial class App : System.Windows.Application
             sp.GetRequiredService<ISettingsRepository>(),
             sp.GetRequiredService<IOnboardingService>(),
             sp.GetRequiredService<IAgentContextService>(),
-            sp.GetServices<ISystemMessageProvider>().ToArray()));
+            sp.GetServices<ISystemMessageProvider>().ToArray(),
+            sp.GetRequiredService<IProjectSettingsRepository>()));
 
         // UI
         services.AddSingleton<ChatPresenter>();

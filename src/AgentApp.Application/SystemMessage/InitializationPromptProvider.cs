@@ -16,7 +16,9 @@ public class InitializationPromptProvider : ISystemMessageProvider
                 "When you have a name and intent, emit exactly one command on its own line:\n" +
                 "[STARTPROJECT:{\"name\":\"<name>\",\"folderName\":\"<lowercase-hyphenated>\",\"intent\":\"<intent>\"}]\n" +
                 "The folderName must be lowercase letters and hyphens only, derived from the project name.\n" +
-                "Do not emit this command until the user has confirmed both a name and an intent.";
+                "Do not emit this command until the user has confirmed both a name and an intent.\n" +
+                "IMPORTANT: Do not use file tools (read_file, write_file, list_directory) until a project is configured. " +
+                "If the user asks for file operations before setup is complete, explain that you need to set up a project first and guide them through the setup.";
 
         // Partial init: project exists but SourceControlRoot not yet set
         return

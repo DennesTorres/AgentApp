@@ -192,7 +192,14 @@ public partial class ChatViewModel : ObservableObject
         UserAvatarShape = string.IsNullOrWhiteSpace(settings.UserAvatarShape) ? "person" : settings.UserAvatarShape;
     }
 
-    // ── Path permission request (US-163) ─────────────────────────────────────
+    // US-190: session bypass mode
+    [ObservableProperty]
+    private bool _bypassPermissions;
+
+    partial void OnBypassPermissionsChanged(bool value) =>
+        _presenter.SetBypassMode(value);
+
+    // ── Path permission request (US-163, US-189) ──────────────────────────────
 
     [RelayCommand]
     private async Task ApprovePermissionAsync()
@@ -202,6 +209,19 @@ public partial class ChatViewModel : ObservableObject
         HasPermissionRequestPending = false;
         _pendingPermissionPath = null;
         var result = await _presenter.GrantPermissionAsync(path);
+        if (!string.IsNullOrWhiteSpace(result.DisplayText))
+            AddAgentMessage(result.DisplayText);
+    }
+
+    // US-189: persist permission across sessions
+    [RelayCommand]
+    private async Task ApprovePermissionAlwaysAsync()
+    {
+        if (_pendingPermissionPath is null) return;
+        var path = _pendingPermissionPath;
+        HasPermissionRequestPending = false;
+        _pendingPermissionPath = null;
+        var result = await _presenter.GrantPermissionAlwaysAsync(path);
         if (!string.IsNullOrWhiteSpace(result.DisplayText))
             AddAgentMessage(result.DisplayText);
     }

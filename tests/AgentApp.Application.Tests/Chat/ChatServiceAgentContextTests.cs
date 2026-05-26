@@ -43,7 +43,8 @@ public class ChatServiceAgentContextTests
             settingsRepo,
             new OnboardingService(projectRepo, settingsRepo),
             contextService,
-            providers ?? []);
+            providers ?? [],
+            new JsonProjectSettingsRepository(tempDir));
         return (orchestrator, fakeModel, contextService);
     }
 

@@ -216,14 +216,20 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding PendingPermissionSummary}"
                            TextWrapping="Wrap" VerticalAlignment="Center"
                            Foreground="#D8A8D8" FontSize="12" />
-                <Button Grid.Column="1" Content="Allow"
+                <!-- US-189: Allow Once (session-scoped) -->
+                <Button Grid.Column="1" Content="Allow Once"
                         Command="{Binding ApprovePermissionCommand}"
-                        Margin="8,0,4,0" MinWidth="70" MinHeight="30" />
-                <Button Grid.Column="2" Content="Deny"
+                        Margin="8,0,4,0" MinWidth="80" MinHeight="30" />
+                <!-- US-189: Always Allow (persisted to project settings) -->
+                <Button Grid.Column="2" Content="Always Allow"
+                        Command="{Binding ApprovePermissionAlwaysCommand}"
+                        Margin="0,0,4,0" MinWidth="90" MinHeight="30" />
+                <Button Grid.Column="3" Content="Deny"
                         Command="{Binding DenyPermissionCommand}"
                         MinWidth="70" MinHeight="30" />
             </Grid>
@@ -231,25 +237,37 @@
 
         <!-- Input row -->
         <Grid Grid.Row="3" Margin="8,0,8,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="InputTextBox"
-                     Grid.Column="0"
-                     Text="{Binding UserInput, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,0,6,0"
-                     MinHeight="36"
-                     MaxHeight="120"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     VerticalScrollBarVisibility="Auto"
-                     PreviewKeyDown="InputTextBox_PreviewKeyDown"
-                     IsEnabled="{Binding IsBusy, Converter={StaticResource BooleanInverseConverter}}" />
-            <Button Grid.Column="1"
-                    Content="Send"
-                    Command="{Binding SendMessageCommand}"
-                    MinWidth="80" MinHeight="36" />
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid Grid.Row="0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="InputTextBox"
+                         Grid.Column="0"
+                         Text="{Binding UserInput, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,0,6,0"
+                         MinHeight="36"
+                         MaxHeight="120"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         PreviewKeyDown="InputTextBox_PreviewKeyDown"
+                         IsEnabled="{Binding IsBusy, Converter={StaticResource BooleanInverseConverter}}" />
+                <Button Grid.Column="1"
+                        Content="Send"
+                        Command="{Binding SendMessageCommand}"
+                        MinWidth="80" MinHeight="36" />
+            </Grid>
+            <!-- US-190: Bypass Permissions toggle -->
+            <CheckBox Grid.Row="1"
+                      Content="Bypass Permissions (skip all path checks this session)"
+                      IsChecked="{Binding BypassPermissions}"
+                      Margin="0,4,0,0"
+                      Foreground="#888" FontSize="11" />
         </Grid>
     </Grid>
 </UserControl>

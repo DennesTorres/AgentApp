@@ -43,7 +43,8 @@ public class ChatOrchestratorTests
             settingsRepo,
             new OnboardingService(projectRepo, settingsRepo),
             new AgentContextService(),
-            Array.Empty<ISystemMessageProvider>());
+            Array.Empty<ISystemMessageProvider>(),
+            new JsonProjectSettingsRepository(tempDir));
     }
 
     [Fact]

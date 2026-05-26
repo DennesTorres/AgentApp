@@ -26,6 +26,17 @@ public class ChatPresenter
     public Task<ChatServiceResult> GrantPermissionAsync(string path)
         => _orchestrator.GrantPermissionAsync(path);
 
+    // US-189: persist permission across sessions
+    public async Task<PresenterResult> GrantPermissionAlwaysAsync(string path)
+    {
+        var result = await _orchestrator.GrantPermissionAlwaysAsync(path);
+        return ToPresenterResult(result);
+    }
+
+    // US-190: session bypass mode
+    public void SetBypassMode(bool bypass) => _orchestrator.SetBypassMode(bypass);
+    public bool IsBypassMode => _orchestrator.IsBypassMode;
+
     public async Task<PresenterResult> HandleFolderSelectedAsync(string path)
     {
         var result = await _orchestrator.HandleFolderSelectedAsync(path);

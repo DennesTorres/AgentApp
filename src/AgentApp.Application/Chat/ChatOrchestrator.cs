@@ -7,6 +7,7 @@ using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Projects;
 using AgentApp.Domain.Providers;
+using AgentApp.Domain.Settings;
 using Microsoft.Extensions.AI;
 
 namespace AgentApp.Application.Chat;
@@ -25,6 +26,7 @@ public class ChatOrchestrator
     private readonly IOnboardingService _onboardingService;
     private readonly IAgentContextService _contextService;
     private readonly ISystemMessageProvider[] _systemMessageProviders;
+    private readonly IProjectSettingsRepository _projectSettingsRepo;
     private readonly List<ChatTurn> _history = [];
 
     public ChatOrchestrator(
@@ -37,7 +39,8 @@ public class ChatOrchestrator
         ISettingsRepository settingsRepository,
         IOnboardingService onboardingService,
         IAgentContextService contextService,
-        ISystemMessageProvider[] systemMessageProviders)
+        ISystemMessageProvider[] systemMessageProviders,
+        IProjectSettingsRepository projectSettingsRepo)
     {
         _dispatcher = dispatcher;
         _responsePrep = responsePrep;
@@ -49,6 +52,7 @@ public class ChatOrchestrator
         _onboardingService = onboardingService;
         _contextService = contextService;
         _systemMessageProviders = systemMessageProviders;
+        _projectSettingsRepo = projectSettingsRepo;
     }
 
     // ── Initialization ────────────────────────────────────────────────────────
@@ -63,10 +67,43 @@ public class ChatOrchestrator
             _contextService.SetProject(recent, agentFolder, recent.ProjectFolderPath);
             if (!string.IsNullOrEmpty(recent.ProjectFolderPath))
                 _fileGate.SetProjectRoots(agentFolder, recent.ProjectFolderPath);
+            // US-189: pre-populate always-allowed paths from persisted project settings
+            var projectSettings = await _projectSettingsRepo.GetByProjectIdAsync(recent.Id);
+            if (projectSettings is not null)
+                foreach (var path in projectSettings.AlwaysAllowedPaths)
+                    _fileGate.GrantReadAccess(path);
             return new InitializeResult(recent.Name, null);
         }
 
-        return new InitializeResult(null, null);
+        // No project: trigger greeting from InitializationPromptProvider
+        var greeting = await GetGreetingAsync();
+        return new InitializeResult(null, greeting);
+    }
+
+    private async Task<string?> GetGreetingAsync()
+    {
+        var context = _contextService.GetCurrent();
+        var systemSections = _systemMessageProviders
+            .Where(p => p.IsApplicable(context))
+            .Select(p => p.GetSection(context))
+            .Where(s => !string.IsNullOrWhiteSpace(s));
+        var systemMessage = string.Join("\n\n", systemSections);
+        if (string.IsNullOrWhiteSpace(systemMessage)) return null;
+
+        var payload = new Dictionary<string, object>
+        {
+            ["history"] = new List<ChatTurn> { new(ChatTurnRole.User, "[SESSION_STARTED]", DateTimeOffset.UtcNow) },
+            ["tools"] = new List<AITool>(),
+            ["systemMessage"] = systemMessage
+        };
+
+        var request = ProviderRequest.Create(ProviderCapability.ModelCall, payload);
+        var response = await _dispatcher.SendAsync(request);
+        if (!response.Success) return null;
+
+        var rawText = (string)response.Result["text"];
+        var (displayText, _) = _responsePrep.Prepare(rawText);
+        return string.IsNullOrWhiteSpace(displayText) ? null : displayText;
     }
 
     // ── Core chat ─────────────────────────────────────────────────────────────
@@ -197,13 +234,32 @@ public class ChatOrchestrator
         return (project.Name, $"Project \"{project.Name}\" created! Your agent folder and code folder are ready.");
     }
 
-    // ── Gate management (US-166) ──────────────────────────────────────────────
+    // ── Gate management (US-166, US-189, US-190) ──────────────────────────────
 
     public async Task<ChatServiceResult> GrantPermissionAsync(string path)
     {
         _fileGate.GrantReadAccess(path);
         return await SendAsync($"[PATH_ACCESS_GRANTED:{{\"path\":\"{path}\"}}]");
     }
+
+    // US-189: grant access and persist so it survives session restarts
+    public async Task<ChatServiceResult> GrantPermissionAlwaysAsync(string path)
+    {
+        _fileGate.GrantReadAccess(path);
+        var context = _contextService.GetCurrent();
+        if (context.CurrentProject is not null)
+        {
+            var settings = await _projectSettingsRepo.GetByProjectIdAsync(context.CurrentProject.Id)
+                ?? ProjectSettings.Create(context.CurrentProject.Id);
+            settings.AddAlwaysAllowedPath(path);
+            await _projectSettingsRepo.SaveAsync(settings);
+        }
+        return await SendAsync($"[PATH_ACCESS_GRANTED:{{\"path\":\"{path}\"}}]");
+    }
+
+    // US-190: toggle session bypass mode
+    public void SetBypassMode(bool bypass) => _fileGate.SetBypassMode(bypass);
+    public bool IsBypassMode => _fileGate.IsBypassMode;
 
     // ── Folder selection (US-155 / US-165) ────────────────────────────────────
 
