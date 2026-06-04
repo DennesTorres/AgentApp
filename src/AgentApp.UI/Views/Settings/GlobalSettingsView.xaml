@@ -120,8 +120,18 @@
             <!-- File system -->
             <TextBlock Text="File System" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,6" Foreground="#A0C4FF" />
             <TextBlock Text="Root Project Folder" Foreground="#888" Margin="0,0,0,4" />
-            <TextBox Text="{Binding RootProjectFolderPath, UpdateSourceTrigger=PropertyChanged}"
-                     MinHeight="30" Margin="0,0,0,8" />
+            <Grid Margin="0,0,0,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox Grid.Column="0" Text="{Binding RootProjectFolderPath, UpdateSourceTrigger=PropertyChanged}"
+                         MinHeight="30" Margin="0,0,6,0" />
+                <Button Grid.Column="1" Content="Browse…" Command="{Binding BrowseRootProjectFolderCommand}"
+                        MinWidth="80" MinHeight="30" />
+            </Grid>
+            <TextBlock Text="Folder where Tower stores all project data (default: %USERPROFILE%\.tower)"
+                       Foreground="#555" FontSize="11" Margin="0,0,0,8" />
 
             <TextBlock Text="Source Control Root" Foreground="#888" Margin="0,0,0,4" />
             <TextBox Text="{Binding SourceControlRoot, UpdateSourceTrigger=PropertyChanged}"

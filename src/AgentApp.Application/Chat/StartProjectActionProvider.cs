@@ -50,5 +50,9 @@ public class StartProjectActionProvider : IActionProvider
             _fileGate.SetProjectRoots(agentFolder, codeFolder);
 
         _contextService.SetProject(project, agentFolder, codeFolder);
+
+        // C-053: grant access to the path the user originally requested before project existed
+        if (!string.IsNullOrEmpty(cmd.AdditionalPath))
+            _fileGate.GrantReadAccess(cmd.AdditionalPath);
     }
 }

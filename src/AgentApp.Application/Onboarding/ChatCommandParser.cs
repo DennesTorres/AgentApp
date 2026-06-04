@@ -44,7 +44,7 @@ public class ChatCommandParser : IChatCommandParser
             "STATE_TRANSITION" => JsonSerializer.Deserialize<StateTransitionPayload>(json) is { } p
                 ? new StateTransitionCommand(p.mode ?? string.Empty) : null,
             "STARTPROJECT" => JsonSerializer.Deserialize<StartProjectPayload>(json) is { } p
-                ? new StartProjectCommand(p.name ?? string.Empty, p.folderName ?? string.Empty, p.intent ?? string.Empty) : null,
+                ? new StartProjectCommand(p.name ?? string.Empty, p.folderName ?? string.Empty, p.intent ?? string.Empty, p.additionalPath ?? string.Empty) : null,
             _ => null
         };
 
@@ -52,5 +52,5 @@ public class ChatCommandParser : IChatCommandParser
     private record ProjectConfirmPayload(string? name, string? intent);
     private record PathPermissionPayload(string? path, string? reason);
     private record StateTransitionPayload(string? mode);
-    private record StartProjectPayload(string? name, string? folderName, string? intent);
+    private record StartProjectPayload(string? name, string? folderName, string? intent, string? additionalPath);
 }
