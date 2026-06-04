@@ -1,3 +1,4 @@
+using System.IO;
 using AgentApp.Domain.Agent;
 using AgentApp.Domain.Interfaces;
 
@@ -9,14 +10,27 @@ public class InitializationPromptProvider : ISystemMessageProvider
 
     public string GetSection(AgentContext context)
     {
+        // C-058: load from %USERPROFILE%\.tower\prompts\initialization.md at call time
+        var promptPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".tower", "prompts", "initialization.md");
+        if (File.Exists(promptPath))
+            return File.ReadAllText(promptPath);
+
         if (!context.HasProject)
             return
-                "You are Tower, an AI coding agent. No project is active yet.\n" +
+                // C-058: engage warmly
+                "You are Tower, an AI development agent. Engage warmly and helpfully with the user.\n" +
                 "RULE: Do not use file tools (read_file, write_file, list_directory) until a project is configured.\n" +
-                "RULE: Emit STARTPROJECT as soon as you have a name and intent — do not wait for explicit confirmation.\n" +
-                "If the user's message already contains a project name and what they want to build, extract it and emit the command immediately.\n" +
-                "If the user requested access to a specific path or file, capture that path in additionalPath so access is granted after setup.\n" +
-                "If name or intent is missing, ask in one short sentence: \"What's the project name and what are you building?\"\n" +
+                "RULE: As soon as you have a name and intent, confirm the name then emit STARTPROJECT.\n" +
+                "If the user's message already contains a project name and what they want to build, extract it.\n" +
+                "If the user requested access to a specific path or file (anywhere in conversation history), " +
+                "capture that path in additionalPath so access is granted after setup.\n" +
+                // C-061: confirm auto-generated name before proceeding
+                "If the project name was not explicitly provided by the user (you are deriving it), confirm first: " +
+                "\"I'll call this \\\"<name>\\\" — does that work for you?\" then wait for confirmation.\n" +
+                "If the user explicitly stated the name, use it directly without asking.\n" +
+                "If name or intent is missing, ask in one short friendly sentence.\n" +
                 "When ready, emit exactly one command on its own line:\n" +
                 "[STARTPROJECT:{\"name\":\"<name>\",\"folderName\":\"<lowercase-hyphenated>\",\"intent\":\"<intent>\",\"additionalPath\":\"<requested-path-or-empty>\"}]\n" +
                 "The folderName must be lowercase letters and hyphens only, derived from the project name.\n" +

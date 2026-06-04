@@ -15,11 +15,15 @@ public class ProjectService
         _settingsRepository = settingsRepository;
     }
 
+    // C-062: raised after a project is successfully created so the Projects tab can refresh
+    public event EventHandler? ProjectCreated;
+
     public async Task<Project> CreateProjectAsync(string name, string folderName,
         string projectFolderPath, string description = "", string purpose = "")
     {
         var project = Project.Create(name, folderName, projectFolderPath, description, purpose);
         await _projectRepository.SaveAsync(project);
+        ProjectCreated?.Invoke(this, EventArgs.Empty);
         return project;
     }
 

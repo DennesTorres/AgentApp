@@ -231,7 +231,9 @@
             </Border>
 
             <!-- C-020: Main tab area with improved styling -->
-            <TabControl Grid.Row="1" Style="{StaticResource AppTabControl}">
+            <!-- C-057: SelectedIndex bound so code can navigate to Chat tab programmatically -->
+            <TabControl Grid.Row="1" Style="{StaticResource AppTabControl}"
+                        SelectedIndex="{Binding SelectedTabIndex}">
                 <TabItem Header="Chat" Style="{StaticResource AppTabItem}">
                     <chat:ChatView DataContext="{Binding ChatViewModel}" />
                 </TabItem>

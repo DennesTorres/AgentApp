@@ -22,6 +22,8 @@ public partial class ProjectListViewModel : ObservableObject
         _projectService = projectService;
         _fileGate = fileGate;
         _scaffoldService = scaffoldService;
+        // C-062: refresh when a project is created via chat
+        _projectService.ProjectCreated += (_, _) => _ = LoadProjectsAsync();
         _ = LoadProjectsAsync();
     }
 

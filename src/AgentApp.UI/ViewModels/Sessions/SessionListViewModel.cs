@@ -30,6 +30,9 @@ public partial class SessionListViewModel : ObservableObject
     // C-042: suppress ClearSession during collection refresh
     public bool IsRefreshing { get; private set; }
 
+    // C-057: raised when the user explicitly creates a new session — navigate to Chat tab
+    public event Action? NavigateToChatRequested;
+
     public SessionListViewModel(SessionService sessionService)
     {
         _sessionService = sessionService;
@@ -84,6 +87,8 @@ public partial class SessionListViewModel : ObservableObject
         await RefreshAsync();
         SelectedSession = Sessions.FirstOrDefault(s => s.Id == session.Id);
         StatusMessage = "New session created.";
+        // C-057: navigate to Chat tab so new session is immediately usable
+        NavigateToChatRequested?.Invoke();
     }
 
     // US-186: Rename selected session (full-view rename panel)
