@@ -34,6 +34,12 @@ public partial class SessionListViewModel : ObservableObject
     // US-184/US-185: grouped view — project header per group, sessions inside
     public ICollectionView SessionsView { get; }
 
+    // C-069: available projects for the new-session project selector; null entry = standalone session
+    public ObservableCollection<ProjectGroupKey> AvailableProjects { get; } = [];
+
+    [ObservableProperty]
+    private ProjectGroupKey? _selectedNewSessionProject;
+
     // C-042: suppress ClearSession during collection refresh
     public bool IsRefreshing { get; private set; }
 
@@ -84,6 +90,18 @@ public partial class SessionListViewModel : ObservableObject
     private async Task<Dictionary<Guid, string>> BuildProjectMapAsync()
     {
         var projects = await _projectService.GetAllProjectsAsync();
+
+        // C-069: refresh the project selector options
+        AvailableProjects.Clear();
+        AvailableProjects.Add(new ProjectGroupKey(null, "(No Project — standalone)"));
+        foreach (var p in projects.OrderBy(p => p.Name))
+            AvailableProjects.Add(new ProjectGroupKey(p.Id, p.Name));
+
+        // Keep selection valid: if selected project no longer exists, reset to standalone
+        if (SelectedNewSessionProject?.Id.HasValue == true &&
+            !projects.Any(p => p.Id == SelectedNewSessionProject.Id))
+            SelectedNewSessionProject = null;
+
         return projects.ToDictionary(p => p.Id, p => p.Name);
     }
 
@@ -94,14 +112,25 @@ public partial class SessionListViewModel : ObservableObject
             Sessions.Add(new SessionItemViewModel(s, projectMap));
     }
 
-    // US-184: Create a new standalone session (top-level button)
+    // US-184/C-069: Create a new session — standalone or project-linked based on selector
     [RelayCommand]
     private async Task CreateSessionAsync()
     {
-        var session = await _sessionService.StartStandaloneSessionAsync();
+        ChatSession session;
+        string statusMsg;
+        if (SelectedNewSessionProject?.Id.HasValue == true)
+        {
+            session = await _sessionService.CreateForProjectAsync(SelectedNewSessionProject.Id.Value);
+            statusMsg = $"New session created in project \"{SelectedNewSessionProject.Name}\".";
+        }
+        else
+        {
+            session = await _sessionService.StartStandaloneSessionAsync();
+            statusMsg = "New session created.";
+        }
         await RefreshAsync();
         SelectedSession = Sessions.FirstOrDefault(s => s.Id == session.Id);
-        StatusMessage = "New session created.";
+        StatusMessage = statusMsg;
         NavigateToChatRequested?.Invoke();
     }
 

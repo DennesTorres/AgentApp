@@ -172,7 +172,12 @@ public partial class ChatViewModel : ObservableObject
             var result = await _presenter.InitializeAsync(_currentSessionId);
             if (generation != _loadGeneration) return;
             if (result.InitialMessage is not null)
+            {
                 AddAgentMessage(result.InitialMessage);
+                // C-067: persist the intro message so it survives session switching
+                if (_currentSessionId.HasValue)
+                    await _sessionService.SaveMessageAsync(_currentSessionId.Value, "Tower", result.InitialMessage);
+            }
         }
     }
 

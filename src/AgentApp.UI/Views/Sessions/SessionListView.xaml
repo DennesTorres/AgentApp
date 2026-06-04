@@ -12,12 +12,24 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- Top toolbar: New standalone session -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button Content="+ New Session" Command="{Binding CreateSessionCommand}" MinWidth="120" MinHeight="30" />
+        <!-- Top toolbar: New session with project selector (C-069) -->
+        <StackPanel Grid.Row="0" Orientation="Vertical" Margin="0,0,0,8">
+            <TextBlock Text="Project:" Foreground="#A0A0B0" FontSize="11" Margin="0,0,0,2" />
+            <StackPanel Orientation="Horizontal">
+                <ComboBox ItemsSource="{Binding AvailableProjects}"
+                          SelectedItem="{Binding SelectedNewSessionProject}"
+                          DisplayMemberPath="Name"
+                          MinWidth="160" MinHeight="28"
+                          Margin="0,0,6,0"
+                          ToolTip="Choose the project for the new session (or no project for standalone)" />
+                <Button Content="+ New Session"
+                        Command="{Binding CreateSessionCommand}"
+                        MinWidth="110" MinHeight="28"
+                        ToolTip="Create a new chat session" />
+            </StackPanel>
         </StackPanel>
 
-        <!-- US-185: Session list grouped by project -->
+        <!-- US-185/C-065: Session list grouped by project -->
         <ListBox Grid.Row="1"
                  ItemsSource="{Binding SessionsView}"
                  SelectedItem="{Binding SelectedSession}"
@@ -27,29 +39,33 @@
                 <GroupStyle>
                     <GroupStyle.HeaderTemplate>
                         <DataTemplate>
-                            <Grid Background="#1E1E2E" Margin="0,4,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <!-- Group name: project name or "(No Project)" -->
-                                <TextBlock Grid.Column="0"
-                                           Text="{Binding Name}"
-                                           Foreground="#9CDCFE"
-                                           FontWeight="Bold"
-                                           FontSize="12"
-                                           VerticalAlignment="Center"
-                                           Margin="4,6,0,4" />
-                                <!-- + New in project button (passes ProjectGroupKey as parameter) -->
-                                <Button Grid.Column="1"
-                                        Content="+ New"
-                                        Command="{Binding DataContext.CreateSessionInGroupCommand,
-                                            RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                        CommandParameter="{Binding Name}"
-                                        MinWidth="60" MinHeight="22"
-                                        Margin="4,4,4,4"
-                                        FontSize="11" />
-                            </Grid>
+                            <!-- C-065: visually distinct project group header with left accent border -->
+                            <Border Background="#23233A" BorderBrush="#4A4A80" BorderThickness="3,0,0,0"
+                                    Margin="0,8,0,0" Padding="6,4,4,4">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <!-- Group name: project name or "(No Project)" -->
+                                    <TextBlock Grid.Column="0"
+                                               Text="{Binding Name}"
+                                               Foreground="#9CDCFE"
+                                               FontWeight="Bold"
+                                               FontSize="12"
+                                               VerticalAlignment="Center" />
+                                    <!-- + New in project button (passes ProjectGroupKey as parameter) -->
+                                    <Button Grid.Column="1"
+                                            Content="+ New"
+                                            Command="{Binding DataContext.CreateSessionInGroupCommand,
+                                                RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                            CommandParameter="{Binding Name}"
+                                            MinWidth="60" MinHeight="22"
+                                            Margin="8,0,0,0"
+                                            FontSize="11"
+                                            ToolTip="New session in this project" />
+                                </Grid>
+                            </Border>
                         </DataTemplate>
                     </GroupStyle.HeaderTemplate>
                 </GroupStyle>

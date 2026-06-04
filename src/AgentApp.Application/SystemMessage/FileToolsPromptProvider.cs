@@ -21,16 +21,24 @@ public class FileToolsPromptProvider : ISystemMessageProvider
 
         // Fallback when file is missing
         var codeFolder = string.IsNullOrEmpty(context.CodeFolderPath)
-            ? "(not set yet — source control root not configured)"
+            ? "(not set yet)"
             : context.CodeFolderPath;
+
+        var partialInitNote = string.IsNullOrEmpty(context.CodeFolderPath)
+            ? "\nNote: The source control root folder has not been set yet, so project code files are not accessible. " +
+              "If the user needs project code access, ask them to select the source control root by emitting:\n" +
+              "[FOLDER_SELECT:{\"reason\":\"Select your source control root folder\"}]\n" +
+              "However, you CAN still access any paths where read access has already been granted.\n"
+            : string.Empty;
 
         return
             $"Project: {context.CurrentProject!.Name}\n" +
             $"Code folder: {codeFolder}\n" +
-            $"Agent folder: {context.AgentFolderPath}\n\n" +
-            "You have access to file tools: read_file, write_file, list_directory.\n" +
-            "These tools only work within the project's code folder. " +
-            "If you need to read a path outside the project, emit a permission request first:\n" +
+            $"Agent folder: {context.AgentFolderPath}\n" +
+            partialInitNote +
+            "\nYou have access to file tools: read_file, write_file, list_directory.\n" +
+            "These tools only work within allowed paths. " +
+            "If you need to read a path outside the permitted folders, emit a permission request first:\n" +
             "[PATH_PERMISSION_REQUEST:{\"path\":\"<path>\",\"reason\":\"<why you need access>\"}]\n" +
             "Wait for the user to grant access before attempting to read that path.\n" +
             // C-060: if permission dialog fails internally, do not blame the OS

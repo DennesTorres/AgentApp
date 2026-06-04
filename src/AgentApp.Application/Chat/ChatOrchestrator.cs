@@ -202,7 +202,12 @@ public class ChatOrchestrator
         // can complete the original task in a follow-up turn where file access is already granted.
         if (projectJustConfigured)
         {
-            var continuation = await SendAsync("[PROJECT_CONFIGURED]", cancellationToken);
+            // Include the granted path in the continuation message so the model knows it can proceed
+            var startCmd = remainingCommands.OfType<StartProjectCommand>().FirstOrDefault();
+            var continuationMsg = !string.IsNullOrEmpty(startCmd?.AdditionalPath)
+                ? $"[PROJECT_CONFIGURED] Project setup is complete and read access to \"{startCmd.AdditionalPath}\" has been granted — please proceed with the original request now."
+                : "[PROJECT_CONFIGURED] Project setup is complete — please proceed with the original request.";
+            var continuation = await SendAsync(continuationMsg, cancellationToken);
             // Combine both turns into a single displayed response
             var combinedText = string.IsNullOrWhiteSpace(displayText)
                 ? continuation.DisplayText

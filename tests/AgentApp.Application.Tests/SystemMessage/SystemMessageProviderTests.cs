@@ -127,11 +127,12 @@ public class SystemMessageProviderTests
     [Fact]
     public void InitializationPromptProvider_IsApplicable_WhenProjectHasNoCodeFolder()
     {
+        // C-063: once a project exists (even partial init), InitializationPromptProvider
+        // must NOT be active — FileToolsPromptProvider takes over to avoid conflicting instructions
         var provider = new InitializationPromptProvider();
         var ctx = new AgentContext();
-        // Project set but empty code folder = partial init
         ctx.SetProject(Project.Create("App", "app", ""), "C:/agent/app", "");
-        Assert.True(provider.IsApplicable(ctx));
+        Assert.False(provider.IsApplicable(ctx));
     }
 
     [Fact]
@@ -147,17 +148,6 @@ public class SystemMessageProviderTests
         var provider = new InitializationPromptProvider();
         var section = provider.GetSection(new AgentContext());
         Assert.Contains("STARTPROJECT", section);
-    }
-
-    [Fact]
-    public void InitializationPromptProvider_GetSection_PartialInit_MentionsFolderSelect()
-    {
-        var provider = new InitializationPromptProvider();
-        var ctx = new AgentContext();
-        ctx.SetProject(Project.Create("App", "app", ""), "C:/agent/app", "");
-        var section = provider.GetSection(ctx);
-        Assert.Contains("FOLDER_SELECT", section);
-        Assert.Contains("App", section);
     }
 
     // ── FileToolsPromptProvider ───────────────────────────────────────────────
@@ -183,5 +173,27 @@ public class SystemMessageProviderTests
         var section = provider.GetSection(ContextWithProject("MyApp"));
         Assert.Contains("MyApp", section);
         Assert.Contains("PATH_PERMISSION_REQUEST", section);
+    }
+
+    [Fact]
+    public void FileToolsPromptProvider_IsApplicable_WhenPartialInit()
+    {
+        // C-063: FileToolsPromptProvider is active even when only partially initialized
+        var provider = new FileToolsPromptProvider();
+        var ctx = new AgentContext();
+        ctx.SetProject(Project.Create("App", "app", ""), "C:/agent/app", "");
+        Assert.True(provider.IsApplicable(ctx));
+    }
+
+    [Fact]
+    public void FileToolsPromptProvider_GetSection_PartialInit_MentionsFolderSelect()
+    {
+        // C-063: when no source control root is set, FileToolsPromptProvider explains how to set it
+        var provider = new FileToolsPromptProvider();
+        var ctx = new AgentContext();
+        ctx.SetProject(Project.Create("App", "app", ""), "C:/agent/app", "");
+        var section = provider.GetSection(ctx);
+        Assert.Contains("FOLDER_SELECT", section);
+        Assert.Contains("App", section);
     }
 }
