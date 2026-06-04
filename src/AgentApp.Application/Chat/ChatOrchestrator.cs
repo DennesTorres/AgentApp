@@ -27,7 +27,9 @@ public class ChatOrchestrator
     private readonly IAgentContextService _contextService;
     private readonly ISystemMessageProvider[] _systemMessageProviders;
     private readonly IProjectSettingsRepository _projectSettingsRepo;
+    private readonly ISessionRepository _sessionRepository;
     private readonly List<ChatTurn> _history = [];
+    private Guid? _currentSessionId;
 
     public ChatOrchestrator(
         CapabilityDispatcher dispatcher,
@@ -40,7 +42,8 @@ public class ChatOrchestrator
         IOnboardingService onboardingService,
         IAgentContextService contextService,
         ISystemMessageProvider[] systemMessageProviders,
-        IProjectSettingsRepository projectSettingsRepo)
+        IProjectSettingsRepository projectSettingsRepo,
+        ISessionRepository sessionRepository)
     {
         _dispatcher = dispatcher;
         _responsePrep = responsePrep;
@@ -53,29 +56,43 @@ public class ChatOrchestrator
         _contextService = contextService;
         _systemMessageProviders = systemMessageProviders;
         _projectSettingsRepo = projectSettingsRepo;
+        _sessionRepository = sessionRepository;
     }
+
+    // ── Session tracking ──────────────────────────────────────────────────────
+
+    public void SetCurrentSession(Guid? sessionId) => _currentSessionId = sessionId;
 
     // ── Initialization ────────────────────────────────────────────────────────
 
-    public async Task<InitializeResult> InitializeAsync()
+    public async Task<InitializeResult> InitializeAsync(Guid? sessionId = null)
     {
-        var projects = await _projectService.GetAllProjectsAsync();
-        var recent = projects.OrderByDescending(p => p.CreatedAt).FirstOrDefault();
-        if (recent is not null)
+        _currentSessionId = sessionId;
+
+        // US-184/US-185: load the project linked to this specific session, not most-recent globally
+        Project? project = null;
+        if (sessionId.HasValue)
         {
-            var agentFolder = _scaffoldService.GetAgentFolderPath(recent.FolderName);
-            _contextService.SetProject(recent, agentFolder, recent.ProjectFolderPath);
-            if (!string.IsNullOrEmpty(recent.ProjectFolderPath))
-                _fileGate.SetProjectRoots(agentFolder, recent.ProjectFolderPath);
+            var session = await _sessionRepository.GetByIdAsync(sessionId.Value);
+            if (session?.ProjectId.HasValue == true)
+                project = await _projectService.GetProjectByIdAsync(session.ProjectId.Value);
+        }
+
+        if (project is not null)
+        {
+            var agentFolder = _scaffoldService.GetAgentFolderPath(project.FolderName);
+            _contextService.SetProject(project, agentFolder, project.ProjectFolderPath);
+            if (!string.IsNullOrEmpty(project.ProjectFolderPath))
+                _fileGate.SetProjectRoots(agentFolder, project.ProjectFolderPath);
             // US-189: pre-populate always-allowed paths from persisted project settings
-            var projectSettings = await _projectSettingsRepo.GetByProjectIdAsync(recent.Id);
+            var projectSettings = await _projectSettingsRepo.GetByProjectIdAsync(project.Id);
             if (projectSettings is not null)
                 foreach (var path in projectSettings.AlwaysAllowedPaths)
                     _fileGate.GrantReadAccess(path);
-            return new InitializeResult(recent.Name, null);
+            return new InitializeResult(project.Name, null);
         }
 
-        // No project: trigger greeting from InitializationPromptProvider
+        // No project linked to this session: trigger greeting from InitializationPromptProvider
         var greeting = await GetGreetingAsync();
         return new InitializeResult(null, greeting);
     }
@@ -163,9 +180,36 @@ public class ChatOrchestrator
                 remainingCommands.Add(cmd);
         }
 
+        var contextBefore = _contextService.GetCurrent();
         var unhandledCommands = await _actionRegistry.DispatchAsync(remainingCommands, cancellationToken);
 
+        // US-185: link session to project when STARTPROJECT is processed
+        var contextAfter = _contextService.GetCurrent();
+        var projectJustConfigured = contextAfter.HasProject && !contextBefore.HasProject;
+        if (projectJustConfigured && _currentSessionId.HasValue)
+        {
+            var session = await _sessionRepository.GetByIdAsync(_currentSessionId.Value);
+            if (session is not null && !session.IsLinkedToProject)
+            {
+                session.LinkToProject(contextAfter.CurrentProject!.Id);
+                await _sessionRepository.SaveAsync(session);
+            }
+        }
+
         _history.Add(new ChatTurn(ChatTurnRole.Assistant, rawText, DateTimeOffset.UtcNow));
+
+        // C-063: continuation turn — project was just configured; send PROJECT_CONFIGURED so model
+        // can complete the original task in a follow-up turn where file access is already granted.
+        if (projectJustConfigured)
+        {
+            var continuation = await SendAsync("[PROJECT_CONFIGURED]", cancellationToken);
+            // Combine both turns into a single displayed response
+            var combinedText = string.IsNullOrWhiteSpace(displayText)
+                ? continuation.DisplayText
+                : displayText.TrimEnd() + "\n\n" + continuation.DisplayText;
+            return new ChatServiceResult(combinedText, continuation.Commands);
+        }
+
         return new ChatServiceResult(displayText, unhandledCommands);
     }
 

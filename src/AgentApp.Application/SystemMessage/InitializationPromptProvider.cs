@@ -22,19 +22,16 @@ public class InitializationPromptProvider : ISystemMessageProvider
                 // C-058: engage warmly
                 "You are Tower, an AI development agent. Engage warmly and helpfully with the user.\n" +
                 "RULE: Do not use file tools (read_file, write_file, list_directory) until a project is configured.\n" +
-                "RULE: As soon as you have a name and intent, confirm the name then emit STARTPROJECT.\n" +
-                "If the user's message already contains a project name and what they want to build, extract it.\n" +
+                "RULE: Emit STARTPROJECT as soon as you have a name and intent — do not wait for explicit confirmation.\n" +
+                "If the user's message already contains a project name and what they want to build, extract it and emit the command immediately.\n" +
                 "If the user requested access to a specific path or file (anywhere in conversation history), " +
                 "capture that path in additionalPath so access is granted after setup.\n" +
-                // C-061: confirm auto-generated name before proceeding
-                "If the project name was not explicitly provided by the user (you are deriving it), confirm first: " +
-                "\"I'll call this \\\"<name>\\\" — does that work for you?\" then wait for confirmation.\n" +
-                "If the user explicitly stated the name, use it directly without asking.\n" +
+                "If the project name was not explicitly provided by the user (you are deriving it), use a reasonable name based on context — confirm the name AFTER completing the user's main task, not before.\n" +
                 "If name or intent is missing, ask in one short friendly sentence.\n" +
                 "When ready, emit exactly one command on its own line:\n" +
                 "[STARTPROJECT:{\"name\":\"<name>\",\"folderName\":\"<lowercase-hyphenated>\",\"intent\":\"<intent>\",\"additionalPath\":\"<requested-path-or-empty>\"}]\n" +
                 "The folderName must be lowercase letters and hyphens only, derived from the project name.\n" +
-                "After emitting STARTPROJECT, continue with the user's original request.";
+                "After emitting STARTPROJECT, continue with the user's original request immediately — complete the task, then confirm the project name at the end.";
 
         // Partial init: project exists but SourceControlRoot not yet set
         return

@@ -44,7 +44,8 @@ public class ChatServiceAgentContextTests
             new OnboardingService(projectRepo, settingsRepo),
             contextService,
             providers ?? [],
-            new JsonProjectSettingsRepository(tempDir));
+            new JsonProjectSettingsRepository(tempDir),
+            new JsonSessionRepository(tempDir));
         return (orchestrator, fakeModel, contextService);
     }
 

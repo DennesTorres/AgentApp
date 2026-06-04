@@ -1,4 +1,7 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Windows.Data;
+using AgentApp.Application.Projects;
 using AgentApp.Application.Sessions;
 using AgentApp.Domain.Sessions;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -6,18 +9,19 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace AgentApp.UI.ViewModels.Sessions;
 
+public record ProjectGroupKey(Guid? Id, string Name)
+{
+    public override string ToString() => Name;
+}
+
 public partial class SessionListViewModel : ObservableObject
 {
     private readonly SessionService _sessionService;
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(CreateSessionCommand))]
-    private string _filterProjectId = string.Empty;
+    private readonly ProjectService _projectService;
 
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
-    // Rename support
     [ObservableProperty]
     private SessionItemViewModel? _selectedSession;
 
@@ -27,15 +31,25 @@ public partial class SessionListViewModel : ObservableObject
 
     public ObservableCollection<SessionItemViewModel> Sessions { get; } = [];
 
+    // US-184/US-185: grouped view — project header per group, sessions inside
+    public ICollectionView SessionsView { get; }
+
     // C-042: suppress ClearSession during collection refresh
     public bool IsRefreshing { get; private set; }
 
     // C-057: raised when the user explicitly creates a new session — navigate to Chat tab
     public event Action? NavigateToChatRequested;
 
-    public SessionListViewModel(SessionService sessionService)
+    public SessionListViewModel(SessionService sessionService, ProjectService projectService)
     {
         _sessionService = sessionService;
+        _projectService = projectService;
+
+        SessionsView = CollectionViewSource.GetDefaultView(Sessions);
+        SessionsView.GroupDescriptions.Add(new PropertyGroupDescription(nameof(SessionItemViewModel.ProjectGroup)));
+        SessionsView.SortDescriptions.Add(new SortDescription(nameof(SessionItemViewModel.GroupSortKey), ListSortDirection.Ascending));
+        SessionsView.SortDescriptions.Add(new SortDescription(nameof(SessionItemViewModel.CreatedAtTicks), ListSortDirection.Descending));
+
         // C-023: refresh list when any session is created (e.g. from Chat tab)
         _sessionService.SessionCreated += (_, _) => _ = RefreshAsync();
         // C-041: update item name directly when session renamed (no full refresh needed)
@@ -53,33 +67,34 @@ public partial class SessionListViewModel : ObservableObject
 
     private async Task LoadSessionsAsync()
     {
+        var projectMap = await BuildProjectMapAsync();
         var sessions = await _sessionService.GetAllActiveAsync();
-        ApplyToCollection(sessions);
+        ApplyToCollection(sessions, projectMap);
 
         // C-040: auto-select most recent session; create one if none exist
         if (Sessions.Count > 0)
-            SelectedSession = Sessions[0];
+            SelectedSession = Sessions.OrderByDescending(s => s.CreatedAtTicks).First();
         else
         {
             var session = await _sessionService.StartStandaloneSessionAsync();
-            // SessionCreated event will call RefreshAsync which repopulates; select it
             SelectedSession = Sessions.FirstOrDefault(s => s.Id == session.Id);
         }
     }
 
-    private void ApplyToCollection(IReadOnlyList<ChatSession> sessions)
+    private async Task<Dictionary<Guid, string>> BuildProjectMapAsync()
     {
-        Sessions.Clear();
-        var filtered = string.IsNullOrWhiteSpace(FilterProjectId)
-            ? sessions
-            : sessions.Where(s => s.ProjectId.HasValue &&
-                s.ProjectId.Value.ToString().Equals(FilterProjectId, StringComparison.OrdinalIgnoreCase)).ToList();
-
-        foreach (var s in filtered.OrderByDescending(x => x.CreatedAt))
-            Sessions.Add(new SessionItemViewModel(s));
+        var projects = await _projectService.GetAllProjectsAsync();
+        return projects.ToDictionary(p => p.Id, p => p.Name);
     }
 
-    // US-184: Create a new standalone session — C-034: auto-select so chat loads with greeting
+    private void ApplyToCollection(IReadOnlyList<ChatSession> sessions, Dictionary<Guid, string> projectMap)
+    {
+        Sessions.Clear();
+        foreach (var s in sessions)
+            Sessions.Add(new SessionItemViewModel(s, projectMap));
+    }
+
+    // US-184: Create a new standalone session (top-level button)
     [RelayCommand]
     private async Task CreateSessionAsync()
     {
@@ -87,7 +102,23 @@ public partial class SessionListViewModel : ObservableObject
         await RefreshAsync();
         SelectedSession = Sessions.FirstOrDefault(s => s.Id == session.Id);
         StatusMessage = "New session created.";
-        // C-057: navigate to Chat tab so new session is immediately usable
+        NavigateToChatRequested?.Invoke();
+    }
+
+    // US-185: Create a new session inside a project group
+    [RelayCommand]
+    private async Task CreateSessionInGroupAsync(ProjectGroupKey? group)
+    {
+        ChatSession session;
+        if (group?.Id.HasValue == true)
+            session = await _sessionService.CreateForProjectAsync(group.Id.Value);
+        else
+            session = await _sessionService.StartStandaloneSessionAsync();
+        await RefreshAsync();
+        SelectedSession = Sessions.FirstOrDefault(s => s.Id == session.Id);
+        StatusMessage = group?.Id.HasValue == true
+            ? $"New session created in project \"{group.Name}\"."
+            : "New session created.";
         NavigateToChatRequested?.Invoke();
     }
 
@@ -130,14 +161,12 @@ public partial class SessionListViewModel : ObservableObject
         await _sessionService.ArchiveAsync(item.Id);
         await RefreshAsync();
         // C-050: if the archived session was selected, explicitly pick a replacement
-        // (null→null SetProperty is a no-op and won't trigger ClearSession in MainWindowViewModel)
         if (wasSelected)
         {
             if (Sessions.Count > 0)
-                SelectedSession = Sessions[0];
+                SelectedSession = Sessions.OrderByDescending(s => s.CreatedAtTicks).First();
             else
             {
-                // No sessions left — create a new one so chat is never left with a ghost
                 var newSession = await _sessionService.StartStandaloneSessionAsync();
                 await RefreshAsync();
                 SelectedSession = Sessions.FirstOrDefault(s => s.Id == newSession.Id);
@@ -146,28 +175,14 @@ public partial class SessionListViewModel : ObservableObject
         StatusMessage = "Session archived.";
     }
 
-    // US-188 / US-019: Filter by project — re-load and filter
-    [RelayCommand]
-    private async Task ApplyFilterAsync()
-    {
-        var all = await _sessionService.GetAllActiveAsync();
-        ApplyToCollection(all);
-    }
-
-    [RelayCommand]
-    private async Task ClearFilterAsync()
-    {
-        FilterProjectId = string.Empty;
-        await RefreshAsync();
-    }
-
     private async Task RefreshAsync()
     {
-        // C-042: preserve selection across refresh — Sessions.Clear() nullifies SelectedSession via ListBox binding
+        // C-042: preserve selection across refresh
         var selectedId = SelectedSession?.Id;
         IsRefreshing = true;
+        var projectMap = await BuildProjectMapAsync();
         var sessions = await _sessionService.GetAllActiveAsync();
-        ApplyToCollection(sessions);
+        ApplyToCollection(sessions, projectMap);
         if (selectedId.HasValue)
             SelectedSession = Sessions.FirstOrDefault(s => s.Id == selectedId);
         IsRefreshing = false;
@@ -177,19 +192,26 @@ public partial class SessionListViewModel : ObservableObject
 public partial class SessionItemViewModel : ObservableObject
 {
     public Guid Id { get; }
-    public string ProjectLabel { get; }
+    public ProjectGroupKey ProjectGroup { get; }
+    public string GroupSortKey { get; }
+    public long CreatedAtTicks { get; }
     public string CreatedAt { get; }
 
     [ObservableProperty] private string _name;
     [ObservableProperty] private bool _isRenaming;
     [ObservableProperty] private string _renameBuffer = string.Empty;
 
-    public SessionItemViewModel(ChatSession session)
+    public SessionItemViewModel(ChatSession session, Dictionary<Guid, string> projectMap)
     {
         Id = session.Id;
         _name = session.Name;
-        ProjectLabel = session.ProjectId.HasValue ? session.ProjectId.Value.ToString()[..8] : "(standalone)";
+        CreatedAtTicks = session.CreatedAt.Ticks;
         CreatedAt = session.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm");
+        var projectName = session.ProjectId.HasValue && projectMap.TryGetValue(session.ProjectId.Value, out var n)
+            ? n : "(No Project)";
+        ProjectGroup = new ProjectGroupKey(session.ProjectId, projectName);
+        // Sort: project sessions first (by name), standalone last
+        GroupSortKey = session.ProjectId.HasValue ? projectName : "~";
     }
 
     public void BeginRename()

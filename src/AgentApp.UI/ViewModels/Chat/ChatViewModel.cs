@@ -110,6 +110,7 @@ public partial class ChatViewModel : ObservableObject
             _isFirstMessage = false;
             var session = await _sessionService.StartStandaloneSessionAsync();
             _currentSessionId = session.Id;
+            _presenter.SetCurrentSession(session.Id);
             await RenameFromTextAsync(session.Id, text);
         }
         else if (_shouldRenameOnFirstMessage && _currentSessionId.HasValue)
@@ -132,6 +133,7 @@ public partial class ChatViewModel : ObservableObject
     public void ClearSession()
     {
         _currentSessionId = null;
+        _presenter.SetCurrentSession(null);
         _isFirstMessage = true;
         _shouldRenameOnFirstMessage = false;
         CurrentSessionName = string.Empty;
@@ -144,6 +146,7 @@ public partial class ChatViewModel : ObservableObject
         // C-045: track generation so a stale concurrent load doesn't overwrite a newer one
         var generation = ++_loadGeneration;
         _currentSessionId = sessionId;
+        _presenter.SetCurrentSession(sessionId);
         _isFirstMessage = false;
         CurrentSessionName = sessionName;
         Messages.Clear();
@@ -166,7 +169,7 @@ public partial class ChatViewModel : ObservableObject
         _shouldRenameOnFirstMessage = messages.Count == 0 && IsDefaultSessionName(sessionName);
         if (messages.Count == 0)
         {
-            var result = await _presenter.InitializeAsync();
+            var result = await _presenter.InitializeAsync(_currentSessionId);
             if (generation != _loadGeneration) return;
             if (result.InitialMessage is not null)
                 AddAgentMessage(result.InitialMessage);

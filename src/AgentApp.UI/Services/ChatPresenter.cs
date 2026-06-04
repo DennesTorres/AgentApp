@@ -14,8 +14,10 @@ public class ChatPresenter
     public ChatPresenter(ChatOrchestrator orchestrator)
         => _orchestrator = orchestrator;
 
-    public Task<InitializeResult> InitializeAsync()
-        => _orchestrator.InitializeAsync();
+    public void SetCurrentSession(Guid? sessionId) => _orchestrator.SetCurrentSession(sessionId);
+
+    public Task<InitializeResult> InitializeAsync(Guid? sessionId = null)
+        => _orchestrator.InitializeAsync(sessionId);
 
     public async Task<PresenterResult> SendAsync(string userMessage, CancellationToken ct = default)
     {

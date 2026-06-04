@@ -39,6 +39,7 @@ public class SessionService
     {
         var session = ChatSession.CreateForProject(projectId);
         await _repository.SaveAsync(session);
+        SessionCreated?.Invoke(this, session);
         return session;
     }
 

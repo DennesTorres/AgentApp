@@ -129,7 +129,8 @@ public partial class App : System.Windows.Application
             sp.GetRequiredService<IOnboardingService>(),
             sp.GetRequiredService<IAgentContextService>(),
             sp.GetServices<ISystemMessageProvider>().ToArray(),
-            sp.GetRequiredService<IProjectSettingsRepository>()));
+            sp.GetRequiredService<IProjectSettingsRepository>(),
+            sp.GetRequiredService<ISessionRepository>()));
 
         // UI
         services.AddSingleton<ChatPresenter>();
@@ -138,7 +139,9 @@ public partial class App : System.Windows.Application
             sp.GetRequiredService<SessionService>(),
             sp.GetRequiredService<ISettingsRepository>()));
         services.AddSingleton<ProjectListViewModel>();
-        services.AddSingleton<SessionListViewModel>();
+        services.AddSingleton<SessionListViewModel>(sp => new SessionListViewModel(
+            sp.GetRequiredService<SessionService>(),
+            sp.GetRequiredService<ProjectService>()));
         services.AddSingleton<BoardViewModel>();
         services.AddSingleton<GlobalSettingsViewModel>();
         services.AddSingleton<ProjectSettingsViewModel>();

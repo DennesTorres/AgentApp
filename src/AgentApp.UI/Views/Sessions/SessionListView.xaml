@@ -8,34 +8,56 @@
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- US-188/US-019: Filter toolbar -->
+        <!-- Top toolbar: New standalone session -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,8">
-            <TextBlock Text="Filter by Project ID:" VerticalAlignment="Center" Margin="0,0,6,0" Foreground="#888" />
-            <TextBox Text="{Binding FilterProjectId, UpdateSourceTrigger=PropertyChanged}"
-                     Width="220" MinHeight="30" Margin="0,0,6,0" />
-            <Button Content="Apply" Command="{Binding ApplyFilterCommand}" MinWidth="70" MinHeight="30" Margin="0,0,4,0" />
-            <Button Content="Clear" Command="{Binding ClearFilterCommand}" MinWidth="70" MinHeight="30" />
+            <Button Content="+ New Session" Command="{Binding CreateSessionCommand}" MinWidth="120" MinHeight="30" />
         </StackPanel>
 
-        <!-- US-184: Create session -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
-            <Button Content="New Session" Command="{Binding CreateSessionCommand}" MinWidth="110" MinHeight="30" />
-        </StackPanel>
-
-        <!-- US-185: Session list -->
-        <ListBox Grid.Row="2"
-                 ItemsSource="{Binding Sessions}"
+        <!-- US-185: Session list grouped by project -->
+        <ListBox Grid.Row="1"
+                 ItemsSource="{Binding SessionsView}"
                  SelectedItem="{Binding SelectedSession}"
                  BorderThickness="1"
                  Margin="0,0,0,8">
+            <ListBox.GroupStyle>
+                <GroupStyle>
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate>
+                            <Grid Background="#1E1E2E" Margin="0,4,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <!-- Group name: project name or "(No Project)" -->
+                                <TextBlock Grid.Column="0"
+                                           Text="{Binding Name}"
+                                           Foreground="#9CDCFE"
+                                           FontWeight="Bold"
+                                           FontSize="12"
+                                           VerticalAlignment="Center"
+                                           Margin="4,6,0,4" />
+                                <!-- + New in project button (passes ProjectGroupKey as parameter) -->
+                                <Button Grid.Column="1"
+                                        Content="+ New"
+                                        Command="{Binding DataContext.CreateSessionInGroupCommand,
+                                            RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                        CommandParameter="{Binding Name}"
+                                        MinWidth="60" MinHeight="22"
+                                        Margin="4,4,4,4"
+                                        FontSize="11" />
+                            </Grid>
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+            </ListBox.GroupStyle>
             <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="Padding" Value="8,0,4,0" />
                 </Style>
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
@@ -43,8 +65,6 @@
                     <Grid Margin="4,4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
@@ -60,12 +80,7 @@
                                 </Style>
                             </StackPanel.Style>
                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                            <TextBlock FontSize="11" Opacity="0.6">
-                                <Run Text="Project: " />
-                                <Run Text="{Binding ProjectLabel, Mode=OneTime}" />
-                                <Run Text="  Created: " />
-                                <Run Text="{Binding CreatedAt, Mode=OneTime}" />
-                            </TextBlock>
+                            <TextBlock FontSize="11" Opacity="0.6" Text="{Binding CreatedAt, Mode=OneTime}" />
                         </StackPanel>
 
                         <!-- Inline rename TextBox: visible when IsRenaming; auto-focused via code-behind (C-052) -->
@@ -88,7 +103,7 @@
                         </TextBox>
 
                         <!-- US-187: Archive -->
-                        <Button Grid.Column="3" Content="Archive"
+                        <Button Grid.Column="1" Content="Archive"
                                 Command="{Binding DataContext.ArchiveSessionCommand,
                                     RelativeSource={RelativeSource AncestorType=ListBox}}"
                                 CommandParameter="{Binding}"
@@ -99,7 +114,7 @@
         </ListBox>
 
         <!-- Status -->
-        <TextBlock Grid.Row="3" Text="{Binding StatusMessage}"
+        <TextBlock Grid.Row="2" Text="{Binding StatusMessage}"
                    Foreground="#A0C4FF" FontSize="12" Opacity="0.8" />
     </Grid>
 </UserControl>
