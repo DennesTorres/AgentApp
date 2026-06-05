@@ -2,8 +2,12 @@ using System.IO;
 using System.Windows;
 using AgentApp.Application.Agent;
 using AgentApp.Application.Chat;
+using AgentApp.Application.Context;
 using AgentApp.Application.FileSystem;
+using AgentApp.Application.Filters;
+using AgentApp.Application.Gates;
 using AgentApp.Application.Onboarding;
+using AgentApp.Application.Orchestration;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
 using AgentApp.Application.Scheduling;
@@ -39,6 +43,19 @@ public partial class App : System.Windows.Application
 
         var mainWindow = Services.GetRequiredService<MainWindow>();
         mainWindow.Show();
+
+        // C-080: start background scheduler check (Epic 12)
+        var schedulerTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromMinutes(1)
+        };
+        schedulerTimer.Tick += async (_, _) =>
+        {
+            var scheduler = Services.GetRequiredService<SchedulerService>();
+            if (await scheduler.IsDueAsync(Domain.Scheduling.ScheduledJobType.ReviewAgent))
+                await scheduler.RecordRunAsync(Domain.Scheduling.ScheduledJobType.ReviewAgent);
+        };
+        schedulerTimer.Start();
     }
 
     private static IServiceProvider ConfigureServices()
@@ -67,6 +84,15 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ICredentialService, WindowsCredentialManager>();
         services.AddSingleton<IScaffoldService, ScaffoldService>();
         services.AddSingleton<IFilePermissionGate, FileSessionGate>();
+        services.AddSingleton<IConversationHistoryRepository>(_ => new JsonConversationHistoryRepository(appDataFolder));
+        services.AddSingleton<IMdFileRepository>(_ => new JsonMdFileRepository(towerRoot));
+        services.AddSingleton<ITriggersIndexRepository>(_ => new JsonTriggersIndexRepository(towerRoot));
+        services.AddSingleton<IFilterRuleRepository>(_ => new JsonFilterRuleRepository(appDataFolder));
+        services.AddSingleton<IGateRuleRepository>(_ => new JsonGateRuleRepository(appDataFolder));
+        services.AddSingleton<IRollingWindowStore>(_ => new FileSystemRollingWindowStore(appDataFolder));
+        services.AddSingleton<IRollingWindowRuleRepository>(_ => new JsonRollingWindowRuleRepository(appDataFolder));
+        services.AddSingleton<IOrchestratorSessionRepository>(_ => new JsonOrchestratorSessionRepository(appDataFolder));
+        services.AddSingleton<IReasoningTraceRepository>(_ => new JsonReasoningTraceRepository(appDataFolder));
 
         // Provider pipeline — file providers registered alongside model provider
         // C-037: load model URL + name from settings at startup
@@ -109,6 +135,14 @@ public partial class App : System.Windows.Application
         services.AddSingleton<ISystemMessageProvider, ExecutionStateProvider>();
         services.AddSingleton<ISystemMessageProvider, FileToolsPromptProvider>();
 
+        // Orchestration + pipeline services
+        services.AddSingleton<ContextAssembler>();
+        services.AddSingleton<FilterPipeline>();
+        services.AddSingleton<GateValidator>();
+        services.AddSingleton<ContextWindowManager>();
+        services.AddSingleton<RollingWindowManager>();
+        services.AddSingleton<ReviewOrchestratorService>();
+
         // Application
         services.AddSingleton<SessionService>();
         services.AddSingleton<ProjectService>();
@@ -130,7 +164,15 @@ public partial class App : System.Windows.Application
             sp.GetRequiredService<IAgentContextService>(),
             sp.GetServices<ISystemMessageProvider>().ToArray(),
             sp.GetRequiredService<IProjectSettingsRepository>(),
-            sp.GetRequiredService<ISessionRepository>()));
+            sp.GetRequiredService<ISessionRepository>(),
+            sp.GetRequiredService<ContextAssembler>(),
+            sp.GetRequiredService<IReasoningTraceRepository>(),
+            sp.GetRequiredService<FilterPipeline>(),
+            sp.GetRequiredService<GateValidator>(),
+            sp.GetRequiredService<IGateRuleRepository>(),
+            sp.GetRequiredService<ContextWindowManager>(),
+            sp.GetRequiredService<RollingWindowManager>(),
+            sp.GetRequiredService<BoardService>()));
 
         // UI
         services.AddSingleton<ChatPresenter>();

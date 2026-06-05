@@ -1,12 +1,17 @@
 using AgentApp.Application.Agent;
 using AgentApp.Application.Chat;
+using AgentApp.Application.Context;
 using AgentApp.Application.FileSystem;
+using AgentApp.Application.Filters;
+using AgentApp.Application.Gates;
 using AgentApp.Application.Onboarding;
+using AgentApp.Application.Orchestration;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
 using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Infrastructure.Credentials;
+using AgentApp.Infrastructure.FileSystem;
 using AgentApp.Infrastructure.ModelAccess;
 using AgentApp.Infrastructure.Persistence;
 using AgentApp.Infrastructure.Scaffold;
@@ -28,6 +33,25 @@ public class ChatOrchestratorTests
 
         var projectRepo = new JsonProjectRepository(tempDir);
         var settingsRepo = new JsonSettingsRepository(tempDir);
+        var sessionRepo = new JsonSessionRepository(tempDir);
+        var projectSettingsRepo = new JsonProjectSettingsRepository(tempDir);
+        var knowledgeRepo = new JsonKnowledgeRecordRepository(tempDir);
+
+        var mdFileRepo = new JsonMdFileRepository(tempDir);
+        var triggersIndexRepo = new JsonTriggersIndexRepository(tempDir);
+        var contextAssembler = new ContextAssembler(mdFileRepo, triggersIndexRepo);
+
+        var traceRepo = new JsonReasoningTraceRepository(tempDir);
+        var filterRuleRepo = new JsonFilterRuleRepository(tempDir);
+        var filterPipeline = new FilterPipeline(filterRuleRepo);
+        var gateValidator = new GateValidator();
+        var gateRuleRepo = new JsonGateRuleRepository(tempDir);
+        var historyRepo = new JsonConversationHistoryRepository(tempDir);
+        var contextWindowManager = new ContextWindowManager(historyRepo, settingsRepo);
+        var rollingWindowStore = new FileSystemRollingWindowStore(tempDir);
+        var rollingWindowRuleRepo = new JsonRollingWindowRuleRepository(tempDir);
+        var rollingWindowManager = new RollingWindowManager(rollingWindowStore, rollingWindowRuleRepo);
+        var boardService = new BoardService(knowledgeRepo);
 
         var commandParser = new ChatCommandParser();
         var responsePrep = new ResponsePreparationService(commandParser);
@@ -44,8 +68,16 @@ public class ChatOrchestratorTests
             new OnboardingService(projectRepo, settingsRepo),
             new AgentContextService(),
             Array.Empty<ISystemMessageProvider>(),
-            new JsonProjectSettingsRepository(tempDir),
-            new JsonSessionRepository(tempDir));
+            projectSettingsRepo,
+            sessionRepo,
+            contextAssembler,
+            traceRepo,
+            filterPipeline,
+            gateValidator,
+            gateRuleRepo,
+            contextWindowManager,
+            rollingWindowManager,
+            boardService);
     }
 
     [Fact]
