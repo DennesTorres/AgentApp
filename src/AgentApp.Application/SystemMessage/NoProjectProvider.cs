@@ -7,7 +7,14 @@ public class NoProjectProvider : ISystemMessageProvider
 {
     public bool IsApplicable(AgentContext context) => !context.HasProject;
 
-    public string GetSection(AgentContext context) =>
-        "You are Tower, an AI coding agent. No project is currently active. " +
-        "Ask the user to create or select a project to begin.";
+    public string GetSection(AgentContext context)
+    {
+        // C-066-R14: disk file checked first (user override), falls back to embedded resource
+        var overridePath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".tower", "prompts", "no-project.md");
+        return PromptLoader.Load(
+            "AgentApp.Application.SystemMessage.Prompts.no-project.md",
+            overridePath);
+    }
 }

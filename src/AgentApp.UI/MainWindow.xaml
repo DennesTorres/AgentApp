@@ -112,11 +112,28 @@
                 </Border>
 
                 <!-- Session list — C-021/C-032: inline rename on double-click or context menu -->
+                <!-- C-065: bind to SessionsView (grouped ICollectionView) instead of flat Sessions -->
                 <ListBox x:Name="SidebarSessionList"
                          Grid.Row="1"
-                         ItemsSource="{Binding SessionListViewModel.Sessions}"
+                         ItemsSource="{Binding SessionListViewModel.SessionsView}"
                          SelectedItem="{Binding SessionListViewModel.SelectedSession}"
                          Background="Transparent" BorderThickness="0">
+                    <ListBox.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.HeaderTemplate>
+                                <DataTemplate>
+                                    <Border Background="#1E1E30" BorderBrush="#4A4A80" BorderThickness="3,0,0,0"
+                                            Margin="0,4,0,0" Padding="6,3,4,3">
+                                        <TextBlock Text="{Binding Name}"
+                                                   Foreground="#9CDCFE"
+                                                   FontWeight="Bold"
+                                                   FontSize="11"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                </DataTemplate>
+                            </GroupStyle.HeaderTemplate>
+                        </GroupStyle>
+                    </ListBox.GroupStyle>
                     <ListBox.ItemContainerStyle>
                         <Style TargetType="ListBoxItem">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />

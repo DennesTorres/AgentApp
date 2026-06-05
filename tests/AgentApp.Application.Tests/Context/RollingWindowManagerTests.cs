@@ -94,4 +94,20 @@ public class RollingWindowManagerTests : IDisposable
 
         Assert.Equal(2, results.Count);
     }
+
+    // C-076: archive is triggered via AppendAsync when threshold exceeded
+    [Fact]
+    public async Task RollingWindowManager_ArchiveThresholdReached_ArchiveCreated()
+    {
+        var rule = RollingWindowRule.Create("conversation", 10, 30, MdFileScope.Global, null);
+        await _ruleRepository.SaveAsync(rule);
+
+        // Append content that exceeds the 10-char threshold
+        await _sut.AppendAsync("conversation", "This content exceeds the threshold", MdFileScope.Global, null);
+
+        var archives = await _store.SearchArchivesAsync("exceeds", "conversation");
+        Assert.Single(archives);
+        var active = await _store.ReadActiveAsync("conversation");
+        Assert.Equal(string.Empty, active);
+    }
 }

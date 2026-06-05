@@ -128,7 +128,8 @@ public class ChatOrchestrator
             return new InitializeResult(project.Name, null);
         }
 
-        // No project linked to this session: trigger greeting from InitializationPromptProvider
+        // No project linked to this session: clear context and trigger greeting from InitializationPromptProvider
+        _contextService.SetProject(null, string.Empty, string.Empty);
         var greeting = await GetGreetingAsync();
         return new InitializeResult(null, greeting);
     }

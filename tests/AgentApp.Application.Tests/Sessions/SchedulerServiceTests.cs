@@ -91,4 +91,18 @@ public class SchedulerServiceTests : IDisposable
 
         Assert.Equal(2, result.Count);
     }
+
+    // C-080: SchedulerService responds to startup check — IsDueAsync returns true for
+    // a configured, never-run enabled schedule (simulates what the startup DispatcherTimer does)
+    [Fact]
+    public async Task SchedulerService_OnStartup_StartsChecking()
+    {
+        var schedule = ScheduleDefinition.Create(ScheduledJobType.ReviewAgent, TimeSpan.FromHours(24), true);
+        await _repository.SaveAsync(schedule);
+
+        // Simulate startup timer check: IsDueAsync should return true for a never-run schedule
+        var isDue = await _sut.IsDueAsync(ScheduledJobType.ReviewAgent);
+
+        Assert.True(isDue, "Scheduler should report ReviewAgent as due on startup when never run.");
+    }
 }

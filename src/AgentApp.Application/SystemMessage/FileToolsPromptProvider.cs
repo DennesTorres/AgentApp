@@ -1,4 +1,3 @@
-using System.IO;
 using AgentApp.Domain.Agent;
 using AgentApp.Domain.Interfaces;
 
@@ -12,14 +11,6 @@ public class FileToolsPromptProvider : ISystemMessageProvider
 
     public string GetSection(AgentContext context)
     {
-        // C-058: load from %USERPROFILE%\.tower\prompts\file-tools.md at call time
-        var promptPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".tower", "prompts", "file-tools.md");
-        if (File.Exists(promptPath))
-            return File.ReadAllText(promptPath);
-
-        // Fallback when file is missing
         var codeFolder = string.IsNullOrEmpty(context.CodeFolderPath)
             ? "(not set yet)"
             : context.CodeFolderPath;
@@ -31,19 +22,20 @@ public class FileToolsPromptProvider : ISystemMessageProvider
               "However, you CAN still access any paths where read access has already been granted.\n"
             : string.Empty;
 
-        return
+        var header =
             $"Project: {context.CurrentProject!.Name}\n" +
             $"Code folder: {codeFolder}\n" +
-            $"Agent folder: {context.AgentFolderPath}\n" +
-            partialInitNote +
-            "\nYou have access to file tools: read_file, write_file, list_directory.\n" +
-            "These tools only work within allowed paths. " +
-            "If you need to read a path outside the permitted folders, emit a permission request first:\n" +
-            "[PATH_PERMISSION_REQUEST:{\"path\":\"<path>\",\"reason\":\"<why you need access>\"}]\n" +
-            "Wait for the user to grant access before attempting to read that path.\n" +
-            // C-060: if permission dialog fails internally, do not blame the OS
-            "If no permission dialog appears after emitting the request, do NOT tell the user it is an OS or " +
-            "filesystem limitation. Instead say naturally: \"I've requested access to [path] — a permission " +
-            "prompt should appear above. If it doesn't, let me know and I can guide you through granting it manually.\"";
+            $"Agent folder: {context.AgentFolderPath}" +
+            partialInitNote;
+
+        // C-058: disk file checked first (user override), falls back to embedded resource (C-066-R14)
+        var overridePath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".tower", "prompts", "file-tools.md");
+        var staticContent = PromptLoader.Load(
+            "AgentApp.Application.SystemMessage.Prompts.file-tools.md",
+            overridePath);
+
+        return header + "\n\n" + staticContent;
     }
 }
