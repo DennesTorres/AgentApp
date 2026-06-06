@@ -8,7 +8,7 @@ namespace AgentApp.Application.Onboarding;
 public class ChatCommandParser : IChatCommandParser
 {
     private static readonly Regex CommandPattern =
-        new(@"\[(?<cmd>FOLDER_SELECT|PROJECT_CONFIRM|PATH_PERMISSION_REQUEST|STATE_TRANSITION|STARTPROJECT):(?<json>\{[^}]*\})\]",
+        new(@"\[(?<cmd>FOLDER_SELECT|PROJECT_CONFIRM|PATH_PERMISSION_REQUEST|STATE_TRANSITION|STARTPROJECT|NAME_CONFIRMED):(?<json>\{[^}]*\})\]",
             RegexOptions.Compiled);
 
     public (string CleanText, IReadOnlyList<ChatCommand> Commands) Parse(string text)
@@ -45,6 +45,7 @@ public class ChatCommandParser : IChatCommandParser
                 ? new StateTransitionCommand(p.mode ?? string.Empty) : null,
             "STARTPROJECT" => JsonSerializer.Deserialize<StartProjectPayload>(json) is { } p
                 ? new StartProjectCommand(p.name ?? string.Empty, p.folderName ?? string.Empty, p.intent ?? string.Empty, p.additionalPath ?? string.Empty) : null,
+            "NAME_CONFIRMED" => new NameConfirmedCommand(),
             _ => null
         };
 

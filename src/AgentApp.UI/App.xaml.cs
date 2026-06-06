@@ -125,15 +125,19 @@ public partial class App : System.Windows.Application
                 sp.GetRequiredService<ISettingsRepository>(),
                 sp.GetRequiredService<IAgentContextService>(),
                 sp.GetRequiredService<IFilePermissionGate>()));
+            registry.Register(new NameConfirmActionProvider(
+                sp.GetRequiredService<IAgentContextService>()));
             return registry;
         });
 
         // Agent context + system message providers
         services.AddSingleton<IAgentContextService, AgentContextService>();
-        services.AddSingleton<ISystemMessageProvider, InitializationPromptProvider>();
-        services.AddSingleton<ISystemMessageProvider, ActiveProjectProvider>();
-        services.AddSingleton<ISystemMessageProvider, ExecutionStateProvider>();
-        services.AddSingleton<ISystemMessageProvider, FileToolsPromptProvider>();
+        services.AddSingleton<ISystemMessageProvider, AgentContextProvider>();       // always — canonical state
+        services.AddSingleton<ISystemMessageProvider, InitializationPromptProvider>(); // always — persona + Stage 1
+        services.AddSingleton<ISystemMessageProvider, NameConfirmationProvider>();    // HasProject && !NameConfirmed
+        services.AddSingleton<ISystemMessageProvider, FileToolsPromptProvider>();     // always — file access instructions
+        // Parked: ActiveProjectProvider and ExecutionStateProvider — state now in AgentContextProvider;
+        // re-register when behavioral instructions are developed for these concerns.
 
         // Orchestration + pipeline services
         services.AddSingleton<ContextAssembler>();

@@ -15,4 +15,6 @@ public class AgentContextService : IAgentContextService
 
     public void UpdateConversationState(ConversationState state)
         => _context.UpdateConversationState(state);
+
+    public void ConfirmProjectName() => _context.ConfirmProjectName();
 }

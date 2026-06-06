@@ -7,7 +7,6 @@
   <ItemGroup>
     <EmbeddedResource Include="SystemMessage\Prompts\initialization.md" />
     <EmbeddedResource Include="SystemMessage\Prompts\file-tools.md" />
-    <EmbeddedResource Include="SystemMessage\Prompts\no-project.md" />
   </ItemGroup>
 
   <ItemGroup>

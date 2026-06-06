@@ -5,10 +5,10 @@ namespace AgentApp.Application.SystemMessage;
 
 public class InitializationPromptProvider : ISystemMessageProvider
 {
-    // C-063: fire only when no project exists — once a project is set (even partial init),
-    // FileToolsPromptProvider takes over; two active providers with conflicting instructions caused
-    // the model to choose folder-select over PATH_PERMISSION_REQUEST in the continuation turn.
-    public bool IsApplicable(AgentContext context) => !context.HasProject;
+    // C-066-R15: always active — carries the Tower persona and Stage 1 initialization instructions.
+    // The initialization.md content is scoped to "when no active project" so the model ignores
+    // the Stage 1 section when AgentContext already shows a project.
+    public bool IsApplicable(AgentContext context) => true;
 
     public string GetSection(AgentContext context)
     {

@@ -54,4 +54,39 @@ public class AgentContextTests
         var state = ConversationState.FromMode("TESTING");
         Assert.Equal("testing", state.Mode);
     }
+
+    [Fact]
+    public void NewAgentContext_NameConfirmed_IsFalse()
+    {
+        var ctx = new AgentContext();
+        Assert.False(ctx.NameConfirmed);
+    }
+
+    [Fact]
+    public void SetProject_SetsNameConfirmedFalse()
+    {
+        var ctx = new AgentContext();
+        var project = Project.Create("App", "app", "C:/code");
+        ctx.SetProject(project, "C:/agent/App", "C:/code/App");
+        Assert.False(ctx.NameConfirmed);
+    }
+
+    [Fact]
+    public void ConfirmProjectName_SetsNameConfirmedTrue()
+    {
+        var ctx = new AgentContext();
+        ctx.SetProject(Project.Create("App", "app", "C:/code"), "C:/agent/App", "C:/code/App");
+        ctx.ConfirmProjectName();
+        Assert.True(ctx.NameConfirmed);
+    }
+
+    [Fact]
+    public void SetProject_AfterConfirm_ResetsNameConfirmedFalse()
+    {
+        var ctx = new AgentContext();
+        ctx.SetProject(Project.Create("App", "app", "C:/code"), "C:/agent/App", "C:/code/App");
+        ctx.ConfirmProjectName();
+        ctx.SetProject(Project.Create("NewApp", "new-app", "C:/code"), "C:/agent/NewApp", "C:/code/NewApp");
+        Assert.False(ctx.NameConfirmed);
+    }
 }

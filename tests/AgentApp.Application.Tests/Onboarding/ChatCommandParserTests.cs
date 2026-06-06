@@ -86,4 +86,14 @@ public class ChatCommandParserTests
         Assert.Equal("my-app", cmd.FolderName);
         Assert.Equal("A todo list", cmd.Intent);
     }
+
+    [Fact]
+    public void Parse_NameConfirmedCommand_ParsedAndStripped()
+    {
+        var parser = BuildParser();
+        var (text, commands) = parser.Parse("Great, project set up! [NAME_CONFIRMED:{}] Let me continue.");
+        Assert.Single(commands);
+        Assert.IsType<NameConfirmedCommand>(commands[0]);
+        Assert.DoesNotContain("NAME_CONFIRMED", text);
+    }
 }

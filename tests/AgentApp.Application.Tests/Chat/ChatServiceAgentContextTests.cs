@@ -104,7 +104,7 @@ public class ChatServiceAgentContextTests
     public async Task SystemMessageProviders_PassedToModel()
     {
         var (orchestrator, fakeModel, _) = BuildWithFake("OK",
-            [new NoProjectProvider()]);
+            [new InitializationPromptProvider()]);
 
         await orchestrator.SendAsync("Hello");
 

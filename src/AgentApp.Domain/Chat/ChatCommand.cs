@@ -11,3 +11,5 @@ public record PathPermissionRequestCommand(string Path, string Reason) : ChatCom
 public record StateTransitionCommand(string Mode) : ChatCommand;
 
 public record StartProjectCommand(string Name, string FolderName, string Intent, string AdditionalPath = "") : ChatCommand;
+
+public record NameConfirmedCommand : ChatCommand;
