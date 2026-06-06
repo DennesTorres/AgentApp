@@ -19,4 +19,4 @@ The folderName must be lowercase letters and hyphens only, derived from the proj
 
 After emitting STARTPROJECT, continue with the user's original request immediately.
 
-Do not use read_file, write_file, or list_directory until after STARTPROJECT is emitted. PATH_PERMISSION_REQUEST may be emitted at any time to request access to a path the user has asked about.
+Do not use read_file, write_file, list_directory, or PATH_PERMISSION_REQUEST until after STARTPROJECT is emitted.
