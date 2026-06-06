@@ -83,36 +83,44 @@ public class SystemMessageProviderTests
         Assert.Contains("chat", section, StringComparison.OrdinalIgnoreCase);
     }
 
-    // ── InitializationPromptProvider ─────────────────────────────────────────
+    // ── AgentFoundationProvider ───────────────────────────────────────────────
 
     [Fact]
-    public void InitializationPromptProvider_IsApplicable_Always_WhenNoProject()
+    public void AgentFoundationProvider_IsApplicable_Always_WhenNoProject()
     {
-        var provider = new InitializationPromptProvider();
+        var provider = new AgentFoundationProvider();
         Assert.True(provider.IsApplicable(new AgentContext()));
     }
 
     [Fact]
-    public void InitializationPromptProvider_IsApplicable_Always_WhenProjectSet()
+    public void AgentFoundationProvider_IsApplicable_Always_WhenProjectSet()
     {
-        var provider = new InitializationPromptProvider();
+        var provider = new AgentFoundationProvider();
         Assert.True(provider.IsApplicable(ContextWithProject()));
     }
 
     [Fact]
-    public void InitializationPromptProvider_GetSection_MentionsTower()
+    public void AgentFoundationProvider_GetSection_MentionsTower()
     {
-        var provider = new InitializationPromptProvider();
+        var provider = new AgentFoundationProvider();
         var section = provider.GetSection(new AgentContext());
         Assert.Contains("Tower", section);
     }
 
     [Fact]
-    public void InitializationPromptProvider_GetSection_MentionsStartProject()
+    public void AgentFoundationProvider_GetSection_MentionsStartProject()
     {
-        var provider = new InitializationPromptProvider();
+        var provider = new AgentFoundationProvider();
         var section = provider.GetSection(new AgentContext());
         Assert.Contains("STARTPROJECT", section);
+    }
+
+    [Fact]
+    public void AgentFoundationProvider_GetSection_MentionsCommandFormat()
+    {
+        var provider = new AgentFoundationProvider();
+        var section = provider.GetSection(new AgentContext());
+        Assert.Contains("COMMAND_NAME", section);
     }
 
     // ── NameConfirmationProvider ──────────────────────────────────────────────
@@ -159,14 +167,14 @@ public class SystemMessageProviderTests
     // ── FileToolsPromptProvider ───────────────────────────────────────────────
 
     [Fact]
-    public void FileToolsPromptProvider_IsApplicable_Always_WhenNoProject()
+    public void FileToolsPromptProvider_IsApplicable_ReturnsFalse_WhenNoProject()
     {
         var provider = new FileToolsPromptProvider();
-        Assert.True(provider.IsApplicable(new AgentContext()));
+        Assert.False(provider.IsApplicable(new AgentContext()));
     }
 
     [Fact]
-    public void FileToolsPromptProvider_IsApplicable_Always_WhenProjectSet()
+    public void FileToolsPromptProvider_IsApplicable_ReturnsTrue_WhenProjectSet()
     {
         var provider = new FileToolsPromptProvider();
         Assert.True(provider.IsApplicable(ContextWithProject()));
@@ -176,16 +184,8 @@ public class SystemMessageProviderTests
     public void FileToolsPromptProvider_GetSection_ContainsPathPermissionRequest()
     {
         var provider = new FileToolsPromptProvider();
-        var section = provider.GetSection(new AgentContext());
+        var section = provider.GetSection(ContextWithProject());
         Assert.Contains("PATH_PERMISSION_REQUEST", section);
-    }
-
-    [Fact]
-    public void FileToolsPromptProvider_GetSection_NoProject_NoFolderSelectNote()
-    {
-        var provider = new FileToolsPromptProvider();
-        var section = provider.GetSection(new AgentContext());
-        Assert.DoesNotContain("FOLDER_SELECT", section);
     }
 
     [Fact]
@@ -201,11 +201,51 @@ public class SystemMessageProviderTests
     // ── AgentContextProvider ──────────────────────────────────────────────────
 
     [Fact]
+    public void AgentContextProvider_SectionRef_IsNotNullOrEmpty()
+    {
+        Assert.False(string.IsNullOrWhiteSpace(AgentContextProvider.SectionRef));
+    }
+
+    [Fact]
     public void AgentContextProvider_IsApplicable_Always()
     {
         var provider = new AgentContextProvider();
         Assert.True(provider.IsApplicable(new AgentContext()));
         Assert.True(provider.IsApplicable(ContextWithProject()));
+    }
+
+    [Fact]
+    public void AgentContextProvider_GetSection_ContainsPreamble()
+    {
+        var provider = new AgentContextProvider();
+        var section = provider.GetSection(new AgentContext());
+        Assert.Contains("Consult this section before responding", section);
+    }
+
+    [Fact]
+    public void AgentContextProvider_GetSection_NoProject_ContainsStage1()
+    {
+        var provider = new AgentContextProvider();
+        var section = provider.GetSection(new AgentContext());
+        Assert.Contains("stage: 1", section);
+    }
+
+    [Fact]
+    public void AgentContextProvider_GetSection_WithUnconfirmedName_ContainsStage2()
+    {
+        var provider = new AgentContextProvider();
+        var section = provider.GetSection(ContextWithProject());
+        Assert.Contains("stage: 2", section);
+    }
+
+    [Fact]
+    public void AgentContextProvider_GetSection_WithConfirmedName_ContainsStage3()
+    {
+        var provider = new AgentContextProvider();
+        var ctx = ContextWithProject();
+        ctx.ConfirmProjectName();
+        var section = provider.GetSection(ctx);
+        Assert.Contains("stage: 3", section);
     }
 
     [Fact]
@@ -249,5 +289,41 @@ public class SystemMessageProviderTests
         var provider = new AgentContextProvider();
         var section = provider.GetSection(new AgentContext());
         Assert.Contains("conversation_mode:", section);
+    }
+
+    // ── StagePromptProvider ───────────────────────────────────────────────────
+
+    [Fact]
+    public void StagePromptProvider_IsApplicable_Always()
+    {
+        var provider = new StagePromptProvider();
+        Assert.True(provider.IsApplicable(new AgentContext()));
+        Assert.True(provider.IsApplicable(ContextWithProject()));
+    }
+
+    [Fact]
+    public void StagePromptProvider_Stage1_GetSection_NotEmpty()
+    {
+        var provider = new StagePromptProvider();
+        var section = provider.GetSection(new AgentContext());
+        Assert.False(string.IsNullOrWhiteSpace(section));
+    }
+
+    [Fact]
+    public void StagePromptProvider_Stage2_GetSection_ReturnsEmpty()
+    {
+        var provider = new StagePromptProvider();
+        var section = provider.GetSection(ContextWithProject());
+        Assert.Equal(string.Empty, section);
+    }
+
+    [Fact]
+    public void StagePromptProvider_Stage3_GetSection_ReturnsEmpty()
+    {
+        var provider = new StagePromptProvider();
+        var ctx = ContextWithProject();
+        ctx.ConfirmProjectName();
+        var section = provider.GetSection(ctx);
+        Assert.Equal(string.Empty, section);
     }
 }

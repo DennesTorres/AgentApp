@@ -65,6 +65,13 @@ public partial class MainWindowViewModel : ObservableObject
 
         // C-057: navigate to Chat tab when user creates a new session from the Sessions panel
         sessionListViewModel.NavigateToChatRequested += () => SelectedTabIndex = 0;
+
+        // C-086: OPEN on Projects tab — find/create session for that project, navigate to Chat
+        projectListViewModel.OpenProjectRequested += projectId =>
+        {
+            _ = sessionListViewModel.OpenProjectSessionAsync(projectId);
+            SelectedTabIndex = 0;
+        };
     }
 
     [RelayCommand]

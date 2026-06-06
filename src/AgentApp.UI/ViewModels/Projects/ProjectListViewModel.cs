@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using AgentApp.Application.Projects;
 using AgentApp.Domain.Interfaces;
+using AgentApp.Domain.Projects;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -9,19 +10,17 @@ namespace AgentApp.UI.ViewModels.Projects;
 public partial class ProjectListViewModel : ObservableObject
 {
     private readonly ProjectService _projectService;
-    private readonly IFilePermissionGate _fileGate;
-    private readonly IScaffoldService _scaffoldService;
+    private readonly IProjectSettingsRepository _projectSettingsRepo;
 
-    [ObservableProperty]
-    private string _activeProjectName = string.Empty;
+    // C-086: fired when user clicks Open on a project row
+    public event Action<Guid>? OpenProjectRequested;
 
     public ObservableCollection<ProjectItemViewModel> Projects { get; } = [];
 
-    public ProjectListViewModel(ProjectService projectService, IFilePermissionGate fileGate, IScaffoldService scaffoldService)
+    public ProjectListViewModel(ProjectService projectService, IProjectSettingsRepository projectSettingsRepo)
     {
         _projectService = projectService;
-        _fileGate = fileGate;
-        _scaffoldService = scaffoldService;
+        _projectSettingsRepo = projectSettingsRepo;
         // C-062: refresh when a project is created via chat
         _projectService.ProjectCreated += (_, _) => _ = LoadProjectsAsync();
         _ = LoadProjectsAsync();
@@ -32,29 +31,42 @@ public partial class ProjectListViewModel : ObservableObject
         var projects = await _projectService.GetAllProjectsAsync();
         Projects.Clear();
         foreach (var p in projects.OrderByDescending(x => x.CreatedAt))
-            Projects.Add(new ProjectItemViewModel(p.Id, p.Name, p.CreatedAt));
+        {
+            var settings = await _projectSettingsRepo.GetByProjectIdAsync(p.Id);
+            var allowedPaths = settings?.AlwaysAllowedPaths ?? [];
+            Projects.Add(new ProjectItemViewModel(p, allowedPaths));
+        }
     }
 
+    // C-086: OPEN button — navigate to most recent session for this project (or create one)
     [RelayCommand]
-    private void SelectProject(ProjectItemViewModel item)
-    {
-        ActiveProjectName = item.Name;
-        _fileGate.SetProjectRoots(
-            _scaffoldService.GetAgentFolderPath(item.Name),
-            item.Name); // code root stored on project; simplified here
-    }
+    private void OpenProject(ProjectItemViewModel item) => OpenProjectRequested?.Invoke(item.Id);
 }
 
-public class ProjectItemViewModel
+public partial class ProjectItemViewModel : ObservableObject
 {
     public Guid Id { get; }
     public string Name { get; }
     public string LastAccessed { get; }
+    public string Purpose { get; }
+    public string AgentFolder { get; }
+    public string CodeFolder { get; }
+    public IReadOnlyList<string> AlwaysAllowedPaths { get; }
 
-    public ProjectItemViewModel(Guid id, string name, DateTimeOffset createdAt)
+    [ObservableProperty]
+    private bool _isExpanded;
+
+    public ProjectItemViewModel(Project project, IReadOnlyList<string> allowedPaths)
     {
-        Id = id;
-        Name = name;
-        LastAccessed = createdAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm");
+        Id = project.Id;
+        Name = project.Name;
+        LastAccessed = project.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm");
+        Purpose = string.IsNullOrWhiteSpace(project.Purpose) ? "(not set)" : project.Purpose;
+        AgentFolder = project.ControlFolderPath;
+        CodeFolder = string.IsNullOrWhiteSpace(project.ProjectFolderPath) ? "(not set)" : project.ProjectFolderPath;
+        AlwaysAllowedPaths = allowedPaths;
     }
+
+    [RelayCommand]
+    private void ToggleExpand() => IsExpanded = !IsExpanded;
 }

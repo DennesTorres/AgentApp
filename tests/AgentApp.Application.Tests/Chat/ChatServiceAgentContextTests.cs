@@ -8,6 +8,7 @@ using AgentApp.Application.Onboarding;
 using AgentApp.Application.Orchestration;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
+using AgentApp.Application.Sessions;
 using AgentApp.Application.SystemMessage;
 using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Chat;
@@ -53,6 +54,9 @@ public class ChatServiceAgentContextTests
         var rollingWindowManager = new RollingWindowManager(rollingWindowStore, rollingWindowRuleRepo);
         var knowledgeRepo = new JsonKnowledgeRecordRepository(tempDir);
         var boardService = new BoardService(knowledgeRepo);
+        var sessionRepo = new JsonSessionRepository(tempDir);
+        var sessionMessageRepo = new JsonSessionMessageRepository(tempDir);
+        var sessionService = new SessionService(sessionRepo, sessionMessageRepo);
 
         var orchestrator = new ChatOrchestrator(
             dispatcher,
@@ -66,7 +70,8 @@ public class ChatServiceAgentContextTests
             contextService,
             providers ?? [],
             new JsonProjectSettingsRepository(tempDir),
-            new JsonSessionRepository(tempDir),
+            sessionRepo,
+            sessionService,
             contextAssembler,
             traceRepo,
             filterPipeline,
@@ -104,7 +109,7 @@ public class ChatServiceAgentContextTests
     public async Task SystemMessageProviders_PassedToModel()
     {
         var (orchestrator, fakeModel, _) = BuildWithFake("OK",
-            [new InitializationPromptProvider()]);
+            [new AgentFoundationProvider()]);
 
         await orchestrator.SendAsync("Hello");
 

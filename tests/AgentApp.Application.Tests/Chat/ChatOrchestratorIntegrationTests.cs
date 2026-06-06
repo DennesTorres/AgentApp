@@ -8,6 +8,7 @@ using AgentApp.Application.Onboarding;
 using AgentApp.Application.Orchestration;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
+using AgentApp.Application.Sessions;
 using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Sessions;
@@ -30,6 +31,8 @@ public class ChatOrchestratorIntegrationTests
         var projectRepo = new JsonProjectRepository(tempDir);
         var settingsRepo = new JsonSettingsRepository(tempDir);
         var sessionRepo = new JsonSessionRepository(tempDir);
+        var sessionMessageRepo = new JsonSessionMessageRepository(tempDir);
+        var sessionService = new SessionService(sessionRepo, sessionMessageRepo);
         var projectSettingsRepo = new JsonProjectSettingsRepository(tempDir);
         var knowledgeRepo = new JsonKnowledgeRecordRepository(tempDir);
 
@@ -78,6 +81,7 @@ public class ChatOrchestratorIntegrationTests
             Array.Empty<ISystemMessageProvider>(),
             projectSettingsRepo,
             sessionRepo,
+            sessionService,
             contextAssembler,
             traceRepo,
             filterPipeline,

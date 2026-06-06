@@ -132,10 +132,11 @@ public partial class App : System.Windows.Application
 
         // Agent context + system message providers
         services.AddSingleton<IAgentContextService, AgentContextService>();
-        services.AddSingleton<ISystemMessageProvider, AgentContextProvider>();       // always — canonical state
-        services.AddSingleton<ISystemMessageProvider, InitializationPromptProvider>(); // always — persona + Stage 1
-        services.AddSingleton<ISystemMessageProvider, NameConfirmationProvider>();    // HasProject && !NameConfirmed
-        services.AddSingleton<ISystemMessageProvider, FileToolsPromptProvider>();     // always — file access instructions
+        services.AddSingleton<ISystemMessageProvider, AgentContextProvider>();       // always — canonical state (stage field)
+        services.AddSingleton<ISystemMessageProvider, AgentFoundationProvider>();   // always — persona + command format
+        services.AddSingleton<ISystemMessageProvider, StagePromptProvider>();       // always — stage 1 reactive signal guidance
+        services.AddSingleton<ISystemMessageProvider, NameConfirmationProvider>();  // HasProject && !NameConfirmed
+        services.AddSingleton<ISystemMessageProvider, FileToolsPromptProvider>();   // HasProject — file access instructions
         // Parked: ActiveProjectProvider and ExecutionStateProvider — state now in AgentContextProvider;
         // re-register when behavioral instructions are developed for these concerns.
 
@@ -169,6 +170,7 @@ public partial class App : System.Windows.Application
             sp.GetServices<ISystemMessageProvider>().ToArray(),
             sp.GetRequiredService<IProjectSettingsRepository>(),
             sp.GetRequiredService<ISessionRepository>(),
+            sp.GetRequiredService<SessionService>(),
             sp.GetRequiredService<ContextAssembler>(),
             sp.GetRequiredService<IReasoningTraceRepository>(),
             sp.GetRequiredService<FilterPipeline>(),

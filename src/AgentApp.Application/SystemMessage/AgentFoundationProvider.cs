@@ -3,16 +3,15 @@ using AgentApp.Domain.Interfaces;
 
 namespace AgentApp.Application.SystemMessage;
 
-public class InitializationPromptProvider : ISystemMessageProvider
+public class AgentFoundationProvider : ISystemMessageProvider
 {
-    // C-066-R15: always active — carries the Tower persona and Stage 1 initialization instructions.
-    // The initialization.md content is scoped to "when no active project" so the model ignores
-    // the Stage 1 section when AgentContext already shows a project.
+    // C-066-R16: always active — carries persona, tone, command format, and STARTPROJECT instruction only.
+    // Stage-specific behavioral guidance has moved to StagePromptProvider.
     public bool IsApplicable(AgentContext context) => true;
 
     public string GetSection(AgentContext context)
     {
-        // C-058: disk file checked first (user override), falls back to embedded resource (C-066-R14)
+        // C-058: disk file checked first (user override), falls back to embedded resource
         var overridePath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             ".tower", "prompts", "initialization.md");

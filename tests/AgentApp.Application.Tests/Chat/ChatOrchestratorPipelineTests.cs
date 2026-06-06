@@ -8,6 +8,7 @@ using AgentApp.Application.Onboarding;
 using AgentApp.Application.Orchestration;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
+using AgentApp.Application.Sessions;
 using AgentApp.Application.Tests.Fakes;
 using AgentApp.Domain.Filters;
 using AgentApp.Domain.Gates;
@@ -73,6 +74,8 @@ public class ChatOrchestratorPipelineTests : IDisposable
         var responsePrep = new ResponsePreparationService(commandParser);
         var actionRegistry = new ActionProviderRegistry();
         var contextService = new AgentContextService();
+        var sessionMessageRepo = new JsonSessionMessageRepository(_tempDir);
+        var sessionService = new SessionService(_sessionRepo, sessionMessageRepo);
 
         var orchestrator = new ChatOrchestrator(
             dispatcher,
@@ -87,6 +90,7 @@ public class ChatOrchestratorPipelineTests : IDisposable
             Array.Empty<ISystemMessageProvider>(),
             projectSettingsRepo,
             _sessionRepo,
+            sessionService,
             contextAssembler,
             _traceRepo,
             filterPipeline,

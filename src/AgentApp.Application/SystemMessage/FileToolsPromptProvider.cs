@@ -5,9 +5,8 @@ namespace AgentApp.Application.SystemMessage;
 
 public class FileToolsPromptProvider : ISystemMessageProvider
 {
-    // C-066-R15: always active — PATH_PERMISSION_REQUEST is an OS-level mechanism independent of
-    // project state. AgentContextProvider now owns state facts; this provider owns file-access instructions.
-    public bool IsApplicable(AgentContext context) => true;
+    // C-066-R16: active only when project is set — Stage 1 file tool signals handled by StagePromptProvider.
+    public bool IsApplicable(AgentContext context) => context.HasProject;
 
     public string GetSection(AgentContext context)
     {

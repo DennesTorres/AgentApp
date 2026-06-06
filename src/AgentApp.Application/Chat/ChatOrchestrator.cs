@@ -6,6 +6,7 @@ using AgentApp.Application.Onboarding;
 using AgentApp.Application.Orchestration;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Providers;
+using AgentApp.Application.Sessions;
 using AgentApp.Domain.Agent;
 using AgentApp.Domain.Chat;
 using AgentApp.Domain.Context;
@@ -35,6 +36,7 @@ public class ChatOrchestrator
     private readonly ISystemMessageProvider[] _systemMessageProviders;
     private readonly IProjectSettingsRepository _projectSettingsRepo;
     private readonly ISessionRepository _sessionRepository;
+    private readonly SessionService _sessionService;
     private readonly ContextAssembler _contextAssembler;
     private readonly IReasoningTraceRepository _reasoningTraceRepo;
     private readonly FilterPipeline _filterPipeline;
@@ -61,6 +63,7 @@ public class ChatOrchestrator
         ISystemMessageProvider[] systemMessageProviders,
         IProjectSettingsRepository projectSettingsRepo,
         ISessionRepository sessionRepository,
+        SessionService sessionService,
         ContextAssembler contextAssembler,
         IReasoningTraceRepository reasoningTraceRepo,
         FilterPipeline filterPipeline,
@@ -82,6 +85,7 @@ public class ChatOrchestrator
         _systemMessageProviders = systemMessageProviders;
         _projectSettingsRepo = projectSettingsRepo;
         _sessionRepository = sessionRepository;
+        _sessionService = sessionService;
         _contextAssembler = contextAssembler;
         _reasoningTraceRepo = reasoningTraceRepo;
         _filterPipeline = filterPipeline;
@@ -306,10 +310,7 @@ public class ChatOrchestrator
         {
             var session = await _sessionRepository.GetByIdAsync(_currentSessionId.Value);
             if (session is not null && !session.IsLinkedToProject)
-            {
-                session.LinkToProject(contextAfter.CurrentProject!.Id);
-                await _sessionRepository.SaveAsync(session);
-            }
+                await _sessionService.LinkSessionToProjectAsync(_currentSessionId.Value, contextAfter.CurrentProject!.Id);
         }
 
         _history.Add(new ChatTurn(ChatTurnRole.Assistant, rawText, DateTimeOffset.UtcNow));
@@ -349,8 +350,11 @@ public class ChatOrchestrator
 
     private async Task<string> ReadFileToolAsync(string path)
     {
+        var context = _contextService.GetCurrent();
+        if (!context.HasProject)
+            return JsonSerializer.Serialize(new { signal = "stage_required" });
         if (!_fileGate.CanRead(path))
-            return JsonSerializer.Serialize(new { error = "Access denied", path });
+            return JsonSerializer.Serialize(new { signal = "path_required", path });
 
         var response = await _dispatcher.SendAsync(
             ProviderRequest.Create(ProviderCapability.FileRead,
@@ -365,8 +369,11 @@ public class ChatOrchestrator
 
     private async Task<string> WriteFileToolAsync(string path, string content)
     {
+        var context = _contextService.GetCurrent();
+        if (!context.HasProject)
+            return JsonSerializer.Serialize(new { signal = "stage_required" });
         if (!_fileGate.CanWrite(path))
-            return JsonSerializer.Serialize(new { error = "Access denied — path outside project roots", path });
+            return JsonSerializer.Serialize(new { signal = "path_required", path });
 
         var response = await _dispatcher.SendAsync(
             ProviderRequest.Create(ProviderCapability.FileWrite,
@@ -379,8 +386,11 @@ public class ChatOrchestrator
 
     private async Task<string> ListDirectoryToolAsync(string path)
     {
+        var context = _contextService.GetCurrent();
+        if (!context.HasProject)
+            return JsonSerializer.Serialize(new { signal = "stage_required" });
         if (!_fileGate.CanRead(path))
-            return JsonSerializer.Serialize(new { error = "Access denied", path });
+            return JsonSerializer.Serialize(new { signal = "path_required", path });
 
         var response = await _dispatcher.SendAsync(
             ProviderRequest.Create(ProviderCapability.DirectoryList,

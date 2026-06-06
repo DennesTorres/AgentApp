@@ -8,13 +8,22 @@ public class AgentContextProvider : ISystemMessageProvider
 {
     // Always active — canonical state source. Serializes AgentContext so every other provider
     // emits behavioral instructions only, never restates state facts.
+    // SectionRef lets other providers reference this section by name without hardcoding the header.
+    public static string SectionRef => "## Agent Context";
+
     public bool IsApplicable(AgentContext context) => true;
 
     public string GetSection(AgentContext context)
     {
+        var stage = !context.HasProject ? 1
+            : !context.NameConfirmed ? 2
+            : 3;
+
         var sb = new StringBuilder();
-        sb.AppendLine("## Agent Context");
+        sb.AppendLine(SectionRef);
+        sb.AppendLine("Consult this section before responding.");
         sb.AppendLine();
+        sb.AppendLine($"stage: {stage}");
 
         if (!context.HasProject)
         {

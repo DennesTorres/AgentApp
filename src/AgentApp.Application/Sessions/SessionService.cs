@@ -12,6 +12,8 @@ public class SessionService
     public event EventHandler<ChatSession>? SessionCreated;
     // C-041: fired after any rename so sidebar can update without full refresh
     public event EventHandler<(Guid sessionId, string newName)>? SessionRenamed;
+    // C-085: fired when a session is linked to a project so sidebar can refresh group headers
+    public event EventHandler<Guid>? SessionLinkedToProject;
 
     public SessionService(ISessionRepository repository, ISessionMessageRepository messageRepository)
     {
@@ -33,6 +35,7 @@ public class SessionService
             ?? throw new DomainNotFoundException($"Session '{sessionId}' not found.");
         session.LinkToProject(projectId);
         await _repository.SaveAsync(session);
+        SessionLinkedToProject?.Invoke(this, sessionId);
     }
 
     public async Task<ChatSession> CreateForProjectAsync(Guid projectId)

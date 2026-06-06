@@ -60,6 +60,8 @@ public partial class SessionListViewModel : ObservableObject
         _sessionService.SessionCreated += (_, _) => _ = RefreshAsync();
         // C-041: update item name directly when session renamed (no full refresh needed)
         _sessionService.SessionRenamed += OnSessionRenamed;
+        // C-085: refresh when a session is linked to a project (group header update)
+        _sessionService.SessionLinkedToProject += (_, _) => _ = RefreshAsync();
         _ = LoadSessionsAsync();
     }
 
@@ -110,6 +112,27 @@ public partial class SessionListViewModel : ObservableObject
         Sessions.Clear();
         foreach (var s in sessions)
             Sessions.Add(new SessionItemViewModel(s, projectMap));
+    }
+
+    // C-086: Open project — navigate to most recent session for this project, or create one if none exists
+    public async Task OpenProjectSessionAsync(Guid projectId)
+    {
+        var projectSessions = await _sessionService.GetByProjectIdAsync(projectId);
+        var activeSessions = projectSessions.Where(s => !s.IsArchived).OrderByDescending(s => s.CreatedAt).ToList();
+
+        ChatSession session;
+        if (activeSessions.Count > 0)
+        {
+            session = activeSessions[0];
+            await RefreshAsync();
+        }
+        else
+        {
+            session = await _sessionService.CreateForProjectAsync(projectId);
+            await RefreshAsync();
+        }
+        SelectedSession = Sessions.FirstOrDefault(s => s.Id == session.Id);
+        NavigateToChatRequested?.Invoke();
     }
 
     // US-184/C-069: Create a new session — standalone or project-linked based on selector
