@@ -249,18 +249,19 @@ public partial class ChatViewModel : ObservableObject
         if (result.PendingFolderSelect is { } folderSelect)
             await HandleFolderSelectAsync(folderSelect.Reason);
 
-        if (result.PendingPermissionRequest is { } permRequest)
-        {
-            _pendingPermissionPath = permRequest.Path;
-            PendingPermissionSummary = $"Tower is requesting read access to:\n{permRequest.Path}\n\nReason: {permRequest.Reason}";
-            HasPermissionRequestPending = true;
-        }
-
+        // C-091: message text first so it appears above the permission bar
         if (!string.IsNullOrWhiteSpace(result.DisplayText))
         {
             AddAgentMessage(result.DisplayText);
             if (_currentSessionId.HasValue)
                 await _sessionService.SaveMessageAsync(_currentSessionId.Value, "Tower", result.DisplayText);
+        }
+
+        if (result.PendingPermissionRequest is { } permRequest)
+        {
+            _pendingPermissionPath = permRequest.Path;
+            PendingPermissionSummary = $"Tower is requesting read access to:\n{permRequest.Path}\n\nReason: {permRequest.Reason}";
+            HasPermissionRequestPending = true;
         }
     }
 

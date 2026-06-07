@@ -10,12 +10,12 @@ public class FileToolsPromptProvider : ISystemMessageProvider
 
     public string GetSection(AgentContext context)
     {
-        // Partial-init note: only when a project exists but source control root is not yet set
+        // C-093: partial-init note — project exists but source control root not yet set
         var partialInitNote = context.HasProject && string.IsNullOrEmpty(context.CodeFolderPath)
-            ? "\nNote: The source control root folder has not been set yet, so project code files are not accessible. " +
-              "If the user needs project code access, ask them to select the source control root by emitting:\n" +
-              "[FOLDER_SELECT:{\"reason\":\"Select your source control root folder\"}]\n" +
-              "However, you CAN still access any paths where read access has already been granted.\n"
+            ? "\nNote: The source control root folder has not been set yet. " +
+              "Do NOT call file tools or emit PATH_PERMISSION_REQUEST. " +
+              "Only emit FOLDER_SELECT to let the user set the source control root first:\n" +
+              "[FOLDER_SELECT:{\"reason\":\"Select your source control root folder\"}]\n"
             : string.Empty;
 
         // C-058: disk file checked first (user override), falls back to embedded resource (C-066-R14)

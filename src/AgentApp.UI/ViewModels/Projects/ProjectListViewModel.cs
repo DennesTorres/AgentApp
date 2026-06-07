@@ -23,6 +23,8 @@ public partial class ProjectListViewModel : ObservableObject
         _projectSettingsRepo = projectSettingsRepo;
         // C-062: refresh when a project is created via chat
         _projectService.ProjectCreated += (_, _) => _ = LoadProjectsAsync();
+        // C-092: refresh when project settings change (Always Allow path granted)
+        _projectService.ProjectSettingsUpdated += (_, _) => _ = LoadProjectsAsync();
         _ = LoadProjectsAsync();
     }
 

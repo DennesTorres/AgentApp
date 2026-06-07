@@ -6,17 +6,25 @@ namespace AgentApp.Application.Chat;
 public class NameConfirmActionProvider : IActionProvider
 {
     private readonly IAgentContextService _contextService;
+    private readonly IProjectRepository _projectRepository;
 
-    public NameConfirmActionProvider(IAgentContextService contextService)
+    public NameConfirmActionProvider(IAgentContextService contextService, IProjectRepository projectRepository)
     {
         _contextService = contextService;
+        _projectRepository = projectRepository;
     }
 
     public bool CanHandle(ChatCommand command) => command is NameConfirmedCommand;
 
-    public Task HandleAsync(ChatCommand command, CancellationToken cancellationToken = default)
+    public async Task HandleAsync(ChatCommand command, CancellationToken cancellationToken = default)
     {
         _contextService.ConfirmProjectName();
-        return Task.CompletedTask;
+        // C-095: persist NameConfirmed on the Project entity so it survives session restarts
+        var project = _contextService.GetCurrent().CurrentProject;
+        if (project is not null)
+        {
+            project.ConfirmName();
+            await _projectRepository.SaveAsync(project);
+        }
     }
 }

@@ -126,7 +126,8 @@ public partial class App : System.Windows.Application
                 sp.GetRequiredService<IAgentContextService>(),
                 sp.GetRequiredService<IFilePermissionGate>()));
             registry.Register(new NameConfirmActionProvider(
-                sp.GetRequiredService<IAgentContextService>()));
+                sp.GetRequiredService<IAgentContextService>(),
+                sp.GetRequiredService<IProjectRepository>()));
             return registry;
         });
 

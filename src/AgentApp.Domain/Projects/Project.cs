@@ -12,12 +12,17 @@ public class Project
     public string ProjectFolderPath { get; private set; } = string.Empty;
     public string ControlFolderPath { get; private set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; private set; }
+    // C-095: whether the user has confirmed the inferred project name
+    public bool NameConfirmed { get; private set; }
 
     private Project() { }
 
+    public void ConfirmName() => NameConfirmed = true;
+
     public static Project Reconstitute(
         Guid id, string name, string folderName, string description, string purpose,
-        string projectFolderPath, string controlFolderPath, DateTimeOffset createdAt)
+        string projectFolderPath, string controlFolderPath, DateTimeOffset createdAt,
+        bool nameConfirmed = false)
     {
         return new Project
         {
@@ -28,7 +33,8 @@ public class Project
             Purpose = purpose,
             ProjectFolderPath = projectFolderPath,
             ControlFolderPath = controlFolderPath,
-            CreatedAt = createdAt
+            CreatedAt = createdAt,
+            NameConfirmed = nameConfirmed
         };
     }
 

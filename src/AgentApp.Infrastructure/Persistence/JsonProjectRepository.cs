@@ -81,6 +81,7 @@ internal class ProjectDto
     public string ProjectFolderPath { get; set; } = string.Empty;
     public string ControlFolderPath { get; set; } = string.Empty;
     public DateTimeOffset CreatedAt { get; set; }
+    public bool NameConfirmed { get; set; }  // C-095
 
     public static ProjectDto FromProject(Project p) => new()
     {
@@ -91,10 +92,11 @@ internal class ProjectDto
         Purpose = p.Purpose,
         ProjectFolderPath = p.ProjectFolderPath,
         ControlFolderPath = p.ControlFolderPath,
-        CreatedAt = p.CreatedAt
+        CreatedAt = p.CreatedAt,
+        NameConfirmed = p.NameConfirmed
     };
 
     public Project ToProject() =>
         Project.Reconstitute(Id, Name, FolderName, Description, Purpose,
-            ProjectFolderPath, ControlFolderPath, CreatedAt);
+            ProjectFolderPath, ControlFolderPath, CreatedAt, NameConfirmed);
 }

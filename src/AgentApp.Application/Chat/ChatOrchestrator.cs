@@ -122,6 +122,9 @@ public class ChatOrchestrator
         {
             var agentFolder = _scaffoldService.GetAgentFolderPath(project.FolderName);
             _contextService.SetProject(project, agentFolder, project.ProjectFolderPath);
+            // C-095: restore NameConfirmed from persisted project state
+            if (project.NameConfirmed)
+                _contextService.ConfirmProjectName();
             if (!string.IsNullOrEmpty(project.ProjectFolderPath))
                 _fileGate.SetProjectRoots(agentFolder, project.ProjectFolderPath);
             // US-189: pre-populate always-allowed paths from persisted project settings
@@ -262,8 +265,8 @@ public class ChatOrchestrator
             break;
         }
 
-        // Epic 8: capture reasoning trace
-        if (_currentSessionId.HasValue)
+        // Epic 8: capture reasoning trace (C-083: skip when rawText is empty — model returned only tool calls)
+        if (_currentSessionId.HasValue && !string.IsNullOrWhiteSpace(rawText))
         {
             var trace = ReasoningTrace.Capture(_currentSessionId.Value, Guid.NewGuid(), rawText);
             await _reasoningTraceRepo.SaveAsync(trace);
@@ -300,17 +303,31 @@ public class ChatOrchestrator
                 remainingCommands.Add(cmd);
         }
 
-        var contextBefore = _contextService.GetCurrent();
+        // C-094: detect StartProjectCommand before dispatch — avoids contextBefore/contextAfter race
+        // with InitializeAsync (which shares AgentContextService singleton and can wipe HasProject
+        // during DispatchAsync's internal awaits on the WPF UI thread).
+        var startCmd = remainingCommands.OfType<StartProjectCommand>().FirstOrDefault();
         var unhandledCommands = await _actionRegistry.DispatchAsync(remainingCommands, cancellationToken);
 
         // US-185: link session to project when STARTPROJECT is processed
-        var contextAfter = _contextService.GetCurrent();
-        var projectJustConfigured = contextAfter.HasProject && !contextBefore.HasProject;
+        var projectJustConfigured = startCmd is not null;
         if (projectJustConfigured && _currentSessionId.HasValue)
         {
-            var session = await _sessionRepository.GetByIdAsync(_currentSessionId.Value);
-            if (session is not null && !session.IsLinkedToProject)
-                await _sessionService.LinkSessionToProjectAsync(_currentSessionId.Value, contextAfter.CurrentProject!.Id);
+            var contextAfter = _contextService.GetCurrent();
+            var newProject = contextAfter.CurrentProject;
+            if (newProject is null)
+            {
+                // Race: InitializeAsync wiped AgentContext after StartProjectActionProvider set it.
+                // Fall back to loading by folder name from the repository.
+                var all = await _projectService.GetAllProjectsAsync();
+                newProject = all.FirstOrDefault(p => p.FolderName == startCmd!.FolderName);
+            }
+            if (newProject is not null)
+            {
+                var session = await _sessionRepository.GetByIdAsync(_currentSessionId.Value);
+                if (session is not null && !session.IsLinkedToProject)
+                    await _sessionService.LinkSessionToProjectAsync(_currentSessionId.Value, newProject.Id);
+            }
         }
 
         _history.Add(new ChatTurn(ChatTurnRole.Assistant, rawText, DateTimeOffset.UtcNow));
@@ -332,7 +349,6 @@ public class ChatOrchestrator
         // can complete the original task in a follow-up turn where file access is already granted.
         if (projectJustConfigured)
         {
-            var startCmd = remainingCommands.OfType<StartProjectCommand>().FirstOrDefault();
             var continuationMsg = !string.IsNullOrEmpty(startCmd?.AdditionalPath)
                 ? $"[PROJECT_CONFIGURED] Project setup is complete and read access to \"{startCmd.AdditionalPath}\" has been granted — please proceed with the original request now."
                 : "[PROJECT_CONFIGURED] Project setup is complete — please proceed with the original request.";
@@ -439,6 +455,8 @@ public class ChatOrchestrator
                 ?? ProjectSettings.Create(context.CurrentProject.Id);
             settings.AddAlwaysAllowedPath(path);
             await _projectSettingsRepo.SaveAsync(settings);
+            // C-092: notify ProjectListViewModel to refresh allowed paths display
+            _projectService.RaiseSettingsUpdated();
         }
         return await SendAsync($"[PATH_ACCESS_GRANTED:{{\"path\":\"{path}\"}}]");
     }

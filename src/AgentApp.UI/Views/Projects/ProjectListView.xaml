@@ -37,18 +37,33 @@
                                 <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" />
                                 <TextBlock Text="{Binding LastAccessed}" FontSize="11" Opacity="0.5" />
                             </StackPanel>
-                            <!-- C-086: Open — navigate to most recent session or create one -->
+                            <!-- C-096: "New Session" — navigate to most recent session or create one -->
                             <Button Grid.Column="1"
-                                    Content="Open"
+                                    Content="New Session"
                                     Command="{Binding DataContext.OpenProjectCommand,
                                         RelativeSource={RelativeSource AncestorType=ListBox}}"
                                     CommandParameter="{Binding}"
-                                    MinWidth="60" MinHeight="28" Margin="8,0,4,0" />
-                            <!-- C-087: gear toggle — show/hide configuration details -->
+                                    MinWidth="80" MinHeight="28" Margin="8,0,4,0" />
+                            <!-- C-098: gear toggle with chevron expand/collapse indicator -->
                             <Button Grid.Column="2"
-                                    Content="⚙"
                                     Command="{Binding ToggleExpandCommand}"
-                                    MinWidth="28" MinHeight="28" />
+                                    MinWidth="42" MinHeight="28">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="⚙" />
+                                    <TextBlock Margin="3,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="▸" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                        <Setter Property="Text" Value="▾" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Button>
                         </Grid>
 
                         <!-- C-087: expandable configuration panel -->

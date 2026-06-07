@@ -1,14 +1,17 @@
 using AgentApp.Application.Agent;
 using AgentApp.Application.Chat;
 using AgentApp.Domain.Chat;
+using AgentApp.Domain.Interfaces;
+using AgentApp.Infrastructure.Persistence;
 
 namespace AgentApp.Application.Tests.Chat;
 
 public class NameConfirmActionProviderTests
 {
     private readonly AgentContextService _contextService = new();
+    private readonly IProjectRepository _projectRepo = new JsonProjectRepository(Path.GetTempPath());
 
-    private NameConfirmActionProvider Build() => new(_contextService);
+    private NameConfirmActionProvider Build() => new(_contextService, _projectRepo);
 
     [Fact]
     public void CanHandle_NameConfirmedCommand_ReturnsTrue()
