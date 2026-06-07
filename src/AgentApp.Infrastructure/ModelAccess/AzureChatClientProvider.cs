@@ -22,9 +22,15 @@ public class AzureChatClientProvider : IProvider
             historyObj is not List<ChatTurn> history)
             return ProviderResponse.Fail(request.RequestId, "Missing or invalid 'history' payload.");
 
-        var messages = history.Select(t => new ChatMessage(
+        var messages = new List<ChatMessage>();
+
+        if (request.Payload.TryGetValue("systemMessage", out var smObj) && smObj is string systemMessage
+            && !string.IsNullOrEmpty(systemMessage))
+            messages.Add(new ChatMessage(ChatRole.System, systemMessage));
+
+        messages.AddRange(history.Select(t => new ChatMessage(
             t.Role == ChatTurnRole.User ? ChatRole.User : ChatRole.Assistant,
-            t.Content)).ToList();
+            t.Content)));
 
         ChatOptions? options = null;
         if (request.Payload.TryGetValue("tools", out var toolsObj) && toolsObj is IList<AITool> tools)

@@ -10,8 +10,6 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- US-157: Active project indicator / US-134: Execution state -->
@@ -200,38 +198,13 @@
             </ListBox.ItemTemplate>
         </ListBox>
 
-        <!-- US-153: Project confirm panel -->
-        <Border Grid.Row="2" Background="#1A2A1A" Padding="12,8" Margin="8,0,8,4" CornerRadius="6">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding HasProjectConfirmPending}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding PendingProjectSummary}"
-                           TextWrapping="Wrap" VerticalAlignment="Center"
-                           Foreground="#A8D8A8" FontSize="12" />
-                <Button Grid.Column="1" Content="Confirm"
-                        Command="{Binding ConfirmProjectCommand}"
-                        Margin="8,0,4,0" MinWidth="70" MinHeight="30" />
-                <Button Grid.Column="2" Content="Cancel"
-                        Command="{Binding CancelProjectCommand}"
-                        MinWidth="70" MinHeight="30" />
-            </Grid>
-        </Border>
-
-        <!-- US-163: Path permission request panel -->
-        <Border Grid.Row="3" Background="#2A1A2A" Padding="12,8" Margin="8,0,8,4" CornerRadius="6">
+        <!-- C-090: Path permission request — floating panel overlaying bottom of message area (US-163) -->
+        <Border Grid.Row="1" VerticalAlignment="Bottom" Panel.ZIndex="10"
+                Margin="16,0,16,12" Padding="14,10" CornerRadius="8"
+                Background="#2A1A2A">
+            <Border.Effect>
+                <DropShadowEffect Color="Black" BlurRadius="20" ShadowDepth="6" Opacity="0.7" />
+            </Border.Effect>
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -243,44 +216,66 @@
                 </Style>
             </Border.Style>
             <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="{Binding PendingPermissionSummary}"
-                           TextWrapping="Wrap" VerticalAlignment="Center"
-                           Foreground="#D8A8D8" FontSize="12" />
-                <Button Grid.Column="1" Content="Allow"
-                        Command="{Binding ApprovePermissionCommand}"
-                        Margin="8,0,4,0" MinWidth="70" MinHeight="30" />
-                <Button Grid.Column="2" Content="Deny"
-                        Command="{Binding DenyPermissionCommand}"
-                        MinWidth="70" MinHeight="30" />
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="{Binding PendingPermissionSummary}"
+                           TextWrapping="Wrap" Foreground="#D8A8D8" FontSize="12"
+                           Margin="0,0,0,10" />
+                <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <!-- US-189: Allow Once (session-scoped) -->
+                    <Button Content="Allow Once"
+                            Command="{Binding ApprovePermissionCommand}"
+                            Margin="0,0,8,0" MinWidth="90" MinHeight="30" />
+                    <!-- US-189: Always Allow (persisted to project settings) -->
+                    <Button Content="Always Allow"
+                            Command="{Binding ApprovePermissionAlwaysCommand}"
+                            Margin="0,0,8,0" MinWidth="100" MinHeight="30" />
+                    <Button Content="Deny"
+                            Command="{Binding DenyPermissionCommand}"
+                            MinWidth="70" MinHeight="30" />
+                </StackPanel>
             </Grid>
         </Border>
 
         <!-- Input row -->
-        <Grid Grid.Row="4" Margin="8,0,8,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="InputTextBox"
-                     Grid.Column="0"
-                     Text="{Binding UserInput, UpdateSourceTrigger=PropertyChanged}"
-                     Margin="0,0,6,0"
-                     MinHeight="36"
-                     MaxHeight="120"
-                     AcceptsReturn="True"
-                     TextWrapping="Wrap"
-                     VerticalScrollBarVisibility="Auto"
-                     PreviewKeyDown="InputTextBox_PreviewKeyDown"
-                     IsEnabled="{Binding IsBusy, Converter={StaticResource BooleanInverseConverter}}" />
-            <Button Grid.Column="1"
-                    Content="Send"
-                    Command="{Binding SendMessageCommand}"
-                    MinWidth="80" MinHeight="36" />
+        <Grid Grid.Row="2" Margin="8,0,8,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <!-- C-097: running indicator — thin progress bar above input -->
+            <ProgressBar Grid.Row="0" IsIndeterminate="True" Height="2" Margin="0,0,0,4"
+                         Visibility="{Binding IsBusy, Converter={StaticResource BooleanToVisibilityConverter}}" />
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="InputTextBox"
+                         Grid.Column="0"
+                         Text="{Binding UserInput, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,0,6,0"
+                         MinHeight="36"
+                         MaxHeight="120"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         PreviewKeyDown="InputTextBox_PreviewKeyDown"
+                         IsEnabled="{Binding IsBusy, Converter={StaticResource BooleanInverseConverter}}" />
+                <Button Grid.Column="1"
+                        Content="Send"
+                        Command="{Binding SendMessageCommand}"
+                        MinWidth="80" MinHeight="36" />
+            </Grid>
+            <!-- US-190: Bypass Permissions toggle -->
+            <CheckBox Grid.Row="2"
+                      Content="Bypass Permissions (skip all path checks this session)"
+                      IsChecked="{Binding BypassPermissions}"
+                      Margin="0,4,0,0"
+                      Foreground="#888" FontSize="11" />
         </Grid>
     </Grid>
 </UserControl>

@@ -18,6 +18,10 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSessionPanelVisible = true;
 
+    // C-057: tab index (0=Chat, 1=Projects, 2=Board, 3=Settings)
+    [ObservableProperty]
+    private int _selectedTabIndex = 0;
+
     public ChatViewModel ChatViewModel { get; }
     public ProjectListViewModel ProjectListViewModel { get; }
     public SessionListViewModel SessionListViewModel { get; }
@@ -58,6 +62,16 @@ public partial class MainWindowViewModel : ObservableObject
 
         // C-047: reload avatar settings in chat whenever global settings are saved
         globalSettingsViewModel.SettingsSaved += (_, _) => _ = chatViewModel.ReloadAvatarSettingsAsync();
+
+        // C-057: navigate to Chat tab when user creates a new session from the Sessions panel
+        sessionListViewModel.NavigateToChatRequested += () => SelectedTabIndex = 0;
+
+        // C-086: OPEN on Projects tab — find/create session for that project, navigate to Chat
+        projectListViewModel.OpenProjectRequested += projectId =>
+        {
+            _ = sessionListViewModel.OpenProjectSessionAsync(projectId);
+            SelectedTabIndex = 0;
+        };
     }
 
     [RelayCommand]

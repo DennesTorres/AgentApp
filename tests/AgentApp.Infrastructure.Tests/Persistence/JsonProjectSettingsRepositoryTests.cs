@@ -68,6 +68,24 @@ public class JsonProjectSettingsRepositoryTests : IDisposable
         Assert.Equal(5, result!.MaxGateRetries);
     }
 
+    // US-189: AlwaysAllowedPaths persistence
+    [Fact]
+    public async Task SaveAsync_WithAlwaysAllowedPaths_PathsArePersisted()
+    {
+        var projectId = Guid.NewGuid();
+        var settings = ProjectSettings.Create(projectId);
+        settings.AddAlwaysAllowedPath(@"C:\MyProject");
+        settings.AddAlwaysAllowedPath(@"C:\AnotherFolder");
+
+        await _sut.SaveAsync(settings);
+        var result = await _sut.GetByProjectIdAsync(projectId);
+
+        Assert.NotNull(result);
+        Assert.Equal(2, result.AlwaysAllowedPaths.Count);
+        Assert.Contains(@"C:\MyProject", result.AlwaysAllowedPaths);
+        Assert.Contains(@"C:\AnotherFolder", result.AlwaysAllowedPaths);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_testFolder))

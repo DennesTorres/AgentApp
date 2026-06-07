@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using AgentApp.Application.Sessions;
-using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
 using AgentApp.UI.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -59,17 +58,8 @@ public partial class ChatViewModel : ObservableObject
     [ObservableProperty]
     private string _userAvatarShape = "person";
 
-    // Project confirmation (US-153)
-    private ProjectConfirmCommand? _pendingProjectConfirm;
-
-    [ObservableProperty]
-    private bool _hasProjectConfirmPending;
-
-    [ObservableProperty]
-    private string _pendingProjectSummary = string.Empty;
-
     // Path permission request (US-163)
-    private PathPermissionRequestCommand? _pendingPermissionRequest;
+    private string? _pendingPermissionPath;
 
     [ObservableProperty]
     private bool _hasPermissionRequestPending;
@@ -120,6 +110,7 @@ public partial class ChatViewModel : ObservableObject
             _isFirstMessage = false;
             var session = await _sessionService.StartStandaloneSessionAsync();
             _currentSessionId = session.Id;
+            _presenter.SetCurrentSession(session.Id);
             await RenameFromTextAsync(session.Id, text);
         }
         else if (_shouldRenameOnFirstMessage && _currentSessionId.HasValue)
@@ -133,17 +124,7 @@ public partial class ChatViewModel : ObservableObject
             await _sessionService.SaveMessageAsync(_currentSessionId.Value, "User", text);
 
         var result = await _presenter.SendAsync(text);
-
-        foreach (var command in result.Commands)
-            await HandleCommandAsync(command);
-
-        if (!string.IsNullOrWhiteSpace(result.DisplayText))
-        {
-            AddAgentMessage(result.DisplayText);
-            // C-029: Save agent message
-            if (_currentSessionId.HasValue)
-                await _sessionService.SaveMessageAsync(_currentSessionId.Value, "Tower", result.DisplayText);
-        }
+        await HandlePresenterResultAsync(result);
 
         IsBusy = false;
     }
@@ -152,6 +133,7 @@ public partial class ChatViewModel : ObservableObject
     public void ClearSession()
     {
         _currentSessionId = null;
+        _presenter.SetCurrentSession(null);
         _isFirstMessage = true;
         _shouldRenameOnFirstMessage = false;
         CurrentSessionName = string.Empty;
@@ -164,6 +146,7 @@ public partial class ChatViewModel : ObservableObject
         // C-045: track generation so a stale concurrent load doesn't overwrite a newer one
         var generation = ++_loadGeneration;
         _currentSessionId = sessionId;
+        _presenter.SetCurrentSession(sessionId);
         _isFirstMessage = false;
         CurrentSessionName = sessionName;
         Messages.Clear();
@@ -186,10 +169,15 @@ public partial class ChatViewModel : ObservableObject
         _shouldRenameOnFirstMessage = messages.Count == 0 && IsDefaultSessionName(sessionName);
         if (messages.Count == 0)
         {
-            var result = await _presenter.InitializeAsync();
+            var result = await _presenter.InitializeAsync(_currentSessionId);
             if (generation != _loadGeneration) return;
             if (result.InitialMessage is not null)
+            {
                 AddAgentMessage(result.InitialMessage);
+                // C-067: persist the intro message so it survives session switching
+                if (_currentSessionId.HasValue)
+                    await _sessionService.SaveMessageAsync(_currentSessionId.Value, "Tower", result.InitialMessage);
+            }
         }
     }
 
@@ -212,40 +200,36 @@ public partial class ChatViewModel : ObservableObject
         UserAvatarShape = string.IsNullOrWhiteSpace(settings.UserAvatarShape) ? "person" : settings.UserAvatarShape;
     }
 
-    // ── Project confirmation (US-153) ────────────────────────────────────────
+    // US-190: session bypass mode
+    [ObservableProperty]
+    private bool _bypassPermissions;
 
-    [RelayCommand]
-    private async Task ConfirmProjectAsync()
-    {
-        if (_pendingProjectConfirm is null) return;
-        IsBusy = true;
-        HasProjectConfirmPending = false;
-        var (projectName, message) = await _presenter.ConfirmProjectAsync(_pendingProjectConfirm);
-        ActiveProjectName = projectName;
-        _pendingProjectConfirm = null;
-        AddAgentMessage(message);
-        IsBusy = false;
-    }
+    partial void OnBypassPermissionsChanged(bool value) =>
+        _presenter.SetBypassMode(value);
 
-    [RelayCommand]
-    private void CancelProject()
-    {
-        _pendingProjectConfirm = null;
-        HasProjectConfirmPending = false;
-        AddAgentMessage("No problem — let me know what you'd like to build.");
-    }
-
-    // ── Path permission request (US-163) ─────────────────────────────────────
+    // ── Path permission request (US-163, US-189) ──────────────────────────────
 
     [RelayCommand]
     private async Task ApprovePermissionAsync()
     {
-        if (_pendingPermissionRequest is null) return;
-        var path = _pendingPermissionRequest.Path;
+        if (_pendingPermissionPath is null) return;
+        var path = _pendingPermissionPath;
         HasPermissionRequestPending = false;
-        _pendingPermissionRequest = null;
+        _pendingPermissionPath = null;
         var result = await _presenter.GrantPermissionAsync(path);
-        foreach (var cmd in result.Commands) await HandleCommandAsync(cmd);
+        if (!string.IsNullOrWhiteSpace(result.DisplayText))
+            AddAgentMessage(result.DisplayText);
+    }
+
+    // US-189: persist permission across sessions
+    [RelayCommand]
+    private async Task ApprovePermissionAlwaysAsync()
+    {
+        if (_pendingPermissionPath is null) return;
+        var path = _pendingPermissionPath;
+        HasPermissionRequestPending = false;
+        _pendingPermissionPath = null;
+        var result = await _presenter.GrantPermissionAlwaysAsync(path);
         if (!string.IsNullOrWhiteSpace(result.DisplayText))
             AddAgentMessage(result.DisplayText);
     }
@@ -253,51 +237,47 @@ public partial class ChatViewModel : ObservableObject
     [RelayCommand]
     private void DenyPermission()
     {
-        _pendingPermissionRequest = null;
+        _pendingPermissionPath = null;
         HasPermissionRequestPending = false;
         AddAgentMessage("Access denied. I'll work within the current permitted paths.");
     }
 
-    // ── Command dispatch ─────────────────────────────────────────────────────
+    // ── Presenter result dispatch ─────────────────────────────────────────────
 
-    private async Task HandleCommandAsync(ChatCommand command)
+    private async Task HandlePresenterResultAsync(PresenterResult result)
     {
-        switch (command)
+        if (result.PendingFolderSelect is { } folderSelect)
+            await HandleFolderSelectAsync(folderSelect.Reason);
+
+        // C-091: message text first so it appears above the permission bar
+        if (!string.IsNullOrWhiteSpace(result.DisplayText))
         {
-            case FolderSelectCommand folderSelect:
-                await HandleFolderSelectAsync(folderSelect);
-                break;
-            case ProjectConfirmCommand projectConfirm:
-                _pendingProjectConfirm = projectConfirm;
-                PendingProjectSummary = $"Create project \"{projectConfirm.ProjectName}\" — {projectConfirm.ProjectIntent}";
-                HasProjectConfirmPending = true;
-                break;
-            case PathPermissionRequestCommand permissionRequest:
-                _pendingPermissionRequest = permissionRequest;
-                PendingPermissionSummary = $"Tower is requesting read access to:\n{permissionRequest.Path}\n\nReason: {permissionRequest.Reason}";
-                HasPermissionRequestPending = true;
-                break;
+            AddAgentMessage(result.DisplayText);
+            if (_currentSessionId.HasValue)
+                await _sessionService.SaveMessageAsync(_currentSessionId.Value, "Tower", result.DisplayText);
+        }
+
+        if (result.PendingPermissionRequest is { } permRequest)
+        {
+            _pendingPermissionPath = permRequest.Path;
+            PendingPermissionSummary = $"Tower is requesting read access to:\n{permRequest.Path}\n\nReason: {permRequest.Reason}";
+            HasPermissionRequestPending = true;
         }
     }
 
     // ── Folder picker (US-155) ───────────────────────────────────────────────
 
-    private async Task HandleFolderSelectAsync(FolderSelectCommand command)
+    private async Task HandleFolderSelectAsync(string reason)
     {
-        var dialog = new OpenFolderDialog { Title = command.Reason };
+        var dialog = new OpenFolderDialog { Title = reason };
         if (dialog.ShowDialog() != true)
         {
             var cancelResult = await _presenter.HandleFolderCancelledAsync();
-            if (!string.IsNullOrWhiteSpace(cancelResult.DisplayText))
-                AddAgentMessage(cancelResult.DisplayText);
+            await HandlePresenterResultAsync(cancelResult);
             return;
         }
-        var selectedPath = dialog.FolderName;
-        var continueResult = await _presenter.HandleFolderSelectedAsync(selectedPath);
-        foreach (var nestedCmd in continueResult.Commands)
-            await HandleCommandAsync(nestedCmd);
-        if (!string.IsNullOrWhiteSpace(continueResult.DisplayText))
-            AddAgentMessage(continueResult.DisplayText);
+        var continueResult = await _presenter.HandleFolderSelectedAsync(dialog.FolderName);
+        await HandlePresenterResultAsync(continueResult);
     }
 
     private void AddAgentMessage(string content)

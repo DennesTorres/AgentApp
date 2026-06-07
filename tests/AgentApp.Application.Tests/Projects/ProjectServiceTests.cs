@@ -34,7 +34,7 @@ public class ProjectServiceTests : IDisposable
             RootProjectFolderPath = @"C:\Projects"
         });
 
-        var project = await _sut.CreateProjectAsync("MyProject", @"C:\Projects\MyProject");
+        var project = await _sut.CreateProjectAsync("MyProject", "my-project", @"C:\Projects\MyProject");
 
         Assert.NotNull(project);
         Assert.Equal("MyProject", project.Name);
@@ -47,14 +47,14 @@ public class ProjectServiceTests : IDisposable
     public async Task CreateProjectAsync_EmptyName_ThrowsValidationException()
     {
         await Assert.ThrowsAsync<DomainValidationException>(
-            () => _sut.CreateProjectAsync("", @"C:\Projects\MyProject"));
+            () => _sut.CreateProjectAsync("", "empty-folder", @"C:\Projects\MyProject"));
     }
 
     [Fact]
     public async Task GetAllProjectsAsync_ReturnsAllProjects()
     {
-        await _projectRepository.SaveAsync(Project.Create("A", @"C:\Projects\A"));
-        await _projectRepository.SaveAsync(Project.Create("B", @"C:\Projects\B"));
+        await _projectRepository.SaveAsync(Project.Create("A", "a", @"C:\Projects\A"));
+        await _projectRepository.SaveAsync(Project.Create("B", "b", @"C:\Projects\B"));
 
         var result = await _sut.GetAllProjectsAsync();
 
@@ -64,7 +64,7 @@ public class ProjectServiceTests : IDisposable
     [Fact]
     public async Task GetProjectByIdAsync_ExistingProject_ReturnsProject()
     {
-        var project = Project.Create("MyProject", @"C:\Projects\MyProject");
+        var project = Project.Create("MyProject", "my-project", @"C:\Projects\MyProject");
         await _projectRepository.SaveAsync(project);
 
         var result = await _sut.GetProjectByIdAsync(project.Id);

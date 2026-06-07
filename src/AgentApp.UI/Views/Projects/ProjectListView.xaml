@@ -25,23 +25,96 @@
             </ListBox.ItemContainerStyle>
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" />
-                            <TextBlock Text="{Binding LastAccessed}" FontSize="11" Opacity="0.5" />
-                        </StackPanel>
-                        <Button Grid.Column="2"
-                                Content="Open"
-                                Command="{Binding DataContext.SelectProjectCommand,
-                                    RelativeSource={RelativeSource AncestorType=ListBox}}"
-                                CommandParameter="{Binding}"
-                                MinWidth="60" MinHeight="28" Margin="8,0,0,0" />
-                    </Grid>
+                    <StackPanel>
+                        <!-- Row: name + date + Open + gear -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" />
+                                <TextBlock Text="{Binding LastAccessed}" FontSize="11" Opacity="0.5" />
+                            </StackPanel>
+                            <!-- C-096: "New Session" — navigate to most recent session or create one -->
+                            <Button Grid.Column="1"
+                                    Content="New Session"
+                                    Command="{Binding DataContext.OpenProjectCommand,
+                                        RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                    CommandParameter="{Binding}"
+                                    MinWidth="80" MinHeight="28" Margin="8,0,4,0" />
+                            <!-- C-098: gear toggle with chevron expand/collapse indicator -->
+                            <Button Grid.Column="2"
+                                    Command="{Binding ToggleExpandCommand}"
+                                    MinWidth="42" MinHeight="28">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="⚙" />
+                                    <TextBlock Margin="3,0,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="▸" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsExpanded}" Value="True">
+                                                        <Setter Property="Text" Value="▾" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+
+                        <!-- C-087: expandable configuration panel -->
+                        <Border Margin="0,6,0,0" Padding="10,8"
+                                Background="#1A1A2E" CornerRadius="4"
+                                Visibility="{Binding IsExpanded,
+                                    Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Intent:" Opacity="0.6" FontSize="12" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Purpose}" FontSize="12" TextWrapping="Wrap" />
+                                </Grid>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Agent folder:" Opacity="0.6" FontSize="12" />
+                                    <TextBlock Grid.Column="1" Text="{Binding AgentFolder}" FontSize="12"
+                                               TextWrapping="Wrap" FontFamily="Consolas" />
+                                </Grid>
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Code folder:" Opacity="0.6" FontSize="12" />
+                                    <TextBlock Grid.Column="1" Text="{Binding CodeFolder}" FontSize="12"
+                                               TextWrapping="Wrap" FontFamily="Consolas" />
+                                </Grid>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="Allowed paths:" Opacity="0.6" FontSize="12" />
+                                    <ItemsControl Grid.Column="1" ItemsSource="{Binding AlwaysAllowedPaths}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}" FontSize="12" FontFamily="Consolas" />
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

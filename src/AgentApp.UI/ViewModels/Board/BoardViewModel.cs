@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using AgentApp.Application.Orchestration;
 using AgentApp.Application.Projects;
 using AgentApp.Application.Scheduling;
 using AgentApp.Domain.Projects;
@@ -11,6 +12,7 @@ public partial class BoardViewModel : ObservableObject
 {
     private readonly BoardService _boardService;
     private readonly SchedulerService _schedulerService;
+    private readonly ReviewOrchestratorService _reviewOrchestratorService;
 
     [ObservableProperty]
     private string _currentProjectId = string.Empty;
@@ -24,10 +26,12 @@ public partial class BoardViewModel : ObservableObject
     public ObservableCollection<KnowledgeRecordItemViewModel> Records { get; } = [];
     public ObservableCollection<SchedulerStatusItemViewModel> SchedulerStatuses { get; } = [];
 
-    public BoardViewModel(BoardService boardService, SchedulerService schedulerService)
+    public BoardViewModel(BoardService boardService, SchedulerService schedulerService,
+        ReviewOrchestratorService reviewOrchestratorService)
     {
         _boardService = boardService;
         _schedulerService = schedulerService;
+        _reviewOrchestratorService = reviewOrchestratorService;
         _ = LoadSchedulerStatusAsync();
     }
 
@@ -53,11 +57,18 @@ public partial class BoardViewModel : ObservableObject
     [RelayCommand]
     private async Task TriggerReviewAgentAsync()
     {
+        if (!Guid.TryParse(CurrentProjectId, out var projectId))
+        {
+            StatusMessage = "Set a valid project ID before triggering the review agent.";
+            return;
+        }
+
         IsReviewRunning = true;
         StatusMessage = "Review agent triggered — running…";
-        // Scheduler records the run; actual dual-agent pipeline (Epic 11) picks it up
         await _schedulerService.RecordRunAsync(Domain.Scheduling.ScheduledJobType.ReviewAgent);
-        StatusMessage = "Review agent run recorded. Agent will process on next cycle.";
+        // C-079: run the review orchestrator (Epic 11 dual-agent pipeline)
+        await _reviewOrchestratorService.RunAsync(projectId, []);
+        StatusMessage = "Review agent run complete.";
         IsReviewRunning = false;
         await LoadSchedulerStatusAsync();
     }

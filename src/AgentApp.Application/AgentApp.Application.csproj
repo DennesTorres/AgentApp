@@ -5,6 +5,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="SystemMessage\Prompts\initialization.md" />
+    <EmbeddedResource Include="SystemMessage\Prompts\file-tools.md" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.AI" Version="10.6.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
   </ItemGroup>

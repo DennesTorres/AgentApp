@@ -16,7 +16,8 @@ public class ProjectSettings
 
     public static ProjectSettings Reconstitute(
         Guid projectId, int? maxGateRetries, bool? requireConfirmationInternal,
-        bool? requireConfirmationFindings, int? tokenThreshold, DateTimeOffset createdAt) =>
+        bool? requireConfirmationFindings, int? tokenThreshold, DateTimeOffset createdAt,
+        IReadOnlyList<string>? alwaysAllowedPaths = null) =>
         new()
         {
             ProjectId = projectId,
@@ -24,11 +25,21 @@ public class ProjectSettings
             RequireUserConfirmationForInternalLearning = requireConfirmationInternal,
             RequireUserConfirmationForFindingsExtraction = requireConfirmationFindings,
             TokenThresholdForContextReset = tokenThreshold,
-            CreatedAt = createdAt
+            CreatedAt = createdAt,
+            AlwaysAllowedPaths = alwaysAllowedPaths ?? []
         };
+
+    public IReadOnlyList<string> AlwaysAllowedPaths { get; private set; } = [];
 
     public void SetMaxGateRetries(int? value) => MaxGateRetries = value;
     public void SetRequireConfirmationInternal(bool? value) => RequireUserConfirmationForInternalLearning = value;
     public void SetRequireConfirmationFindings(bool? value) => RequireUserConfirmationForFindingsExtraction = value;
     public void SetTokenThreshold(int? value) => TokenThresholdForContextReset = value;
+    public void AddAlwaysAllowedPath(string path)
+    {
+        var list = AlwaysAllowedPaths.ToList();
+        if (!list.Contains(path, StringComparer.OrdinalIgnoreCase))
+            list.Add(path);
+        AlwaysAllowedPaths = list.AsReadOnly();
+    }
 }

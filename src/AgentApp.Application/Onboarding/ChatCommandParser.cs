@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using AgentApp.Domain.Chat;
 using AgentApp.Domain.Interfaces;
@@ -7,7 +8,7 @@ namespace AgentApp.Application.Onboarding;
 public class ChatCommandParser : IChatCommandParser
 {
     private static readonly Regex CommandPattern =
-        new(@"\[(?<cmd>FOLDER_SELECT|PROJECT_CONFIRM|PATH_PERMISSION_REQUEST):(?<json>\{[^}]*\})\]",
+        new(@"\[(?<cmd>FOLDER_SELECT|PROJECT_CONFIRM|PATH_PERMISSION_REQUEST|STATE_TRANSITION|STARTPROJECT|NAME_CONFIRMED):(?<json>\{[^}]*\})\]",
             RegexOptions.Compiled);
 
     public (string CleanText, IReadOnlyList<ChatCommand> Commands) Parse(string text)
@@ -34,16 +35,23 @@ public class ChatCommandParser : IChatCommandParser
     private static ChatCommand? ParseCommand(string commandName, string json) =>
         commandName switch
         {
-            "FOLDER_SELECT" => System.Text.Json.JsonSerializer.Deserialize<FolderSelectPayload>(json) is { } p
+            "FOLDER_SELECT" => JsonSerializer.Deserialize<FolderSelectPayload>(json) is { } p
                 ? new FolderSelectCommand(p.reason ?? string.Empty) : null,
-            "PROJECT_CONFIRM" => System.Text.Json.JsonSerializer.Deserialize<ProjectConfirmPayload>(json) is { } p
+            "PROJECT_CONFIRM" => JsonSerializer.Deserialize<ProjectConfirmPayload>(json) is { } p
                 ? new ProjectConfirmCommand(p.name ?? string.Empty, p.intent ?? string.Empty) : null,
-            "PATH_PERMISSION_REQUEST" => System.Text.Json.JsonSerializer.Deserialize<PathPermissionPayload>(json) is { } p
+            "PATH_PERMISSION_REQUEST" => JsonSerializer.Deserialize<PathPermissionPayload>(json) is { } p
                 ? new PathPermissionRequestCommand(p.path ?? string.Empty, p.reason ?? string.Empty) : null,
+            "STATE_TRANSITION" => JsonSerializer.Deserialize<StateTransitionPayload>(json) is { } p
+                ? new StateTransitionCommand(p.mode ?? string.Empty) : null,
+            "STARTPROJECT" => JsonSerializer.Deserialize<StartProjectPayload>(json) is { } p
+                ? new StartProjectCommand(p.name ?? string.Empty, p.folderName ?? string.Empty, p.intent ?? string.Empty, p.additionalPath ?? string.Empty) : null,
+            "NAME_CONFIRMED" => new NameConfirmedCommand(),
             _ => null
         };
 
     private record FolderSelectPayload(string? reason);
     private record ProjectConfirmPayload(string? name, string? intent);
     private record PathPermissionPayload(string? path, string? reason);
+    private record StateTransitionPayload(string? mode);
+    private record StartProjectPayload(string? name, string? folderName, string? intent, string? additionalPath);
 }

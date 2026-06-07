@@ -1,3 +1,4 @@
+using System.IO;
 using AgentApp.Domain.Interfaces;
 using AgentApp.Domain.Settings;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -41,6 +42,9 @@ public partial class GlobalSettingsViewModel : ObservableObject
     [ObservableProperty] private bool _hasUnsavedChanges;
     public event EventHandler? SettingsSaved;
 
+    // C-055: suppress HasUnsavedChanges during initial load
+    private bool _isLoading;
+
     public GlobalSettingsViewModel(ISettingsRepository settingsRepository, ICredentialService credentialService)
     {
         _settingsRepository = settingsRepository;
@@ -52,12 +56,15 @@ public partial class GlobalSettingsViewModel : ObservableObject
 
     private async Task LoadAsync()
     {
+        _isLoading = true;
         var settings = await _settingsRepository.GetGlobalSettingsAsync();
 
-        // C-038/C-043: no default — sourceControlRoot must never be defaulted (BUSINESS-RULES.md)
-        // C-043: clear old hardcoded "C:\GitHub" default written by C-028 fix
+        // C-056: default to Tower canonical root; clear old "C:\GitHub" written by C-028
         var storedRoot = settings.RootProjectFolderPath;
-        RootProjectFolderPath = storedRoot is @"C:\GitHub" ? string.Empty : storedRoot;
+        var towerDefault = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".tower");
+        RootProjectFolderPath = string.IsNullOrEmpty(storedRoot) || storedRoot is @"C:\GitHub"
+            ? towerDefault
+            : storedRoot;
 
         // C-027: model URL with default
         ModelUrl = string.IsNullOrWhiteSpace(settings.ModelUrl)
@@ -82,13 +89,15 @@ public partial class GlobalSettingsViewModel : ObservableObject
         UserAvatarPreset = string.IsNullOrWhiteSpace(settings.UserAvatarPreset) ? "teal" : settings.UserAvatarPreset;
         AgentAvatarShape = string.IsNullOrWhiteSpace(settings.AgentAvatarShape) ? "person" : settings.AgentAvatarShape;
         UserAvatarShape = string.IsNullOrWhiteSpace(settings.UserAvatarShape) ? "person" : settings.UserAvatarShape;
+        _isLoading = false;
     }
 
     // C-049: mark unsaved on any user-editable property change (not status/key-state fields)
+    // C-055: skip during LoadAsync to prevent startup false positive
     protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
-        if (e.PropertyName is not (nameof(HasUnsavedChanges) or nameof(StatusMessage) or nameof(IsApiKeySet) or nameof(NewApiKey)))
+        if (!_isLoading && e.PropertyName is not (nameof(HasUnsavedChanges) or nameof(StatusMessage) or nameof(IsApiKeySet) or nameof(NewApiKey)))
             HasUnsavedChanges = true;
     }
 
@@ -126,6 +135,15 @@ public partial class GlobalSettingsViewModel : ObservableObject
         HasUnsavedChanges = false;
         StatusMessage = "Settings saved.";
         SettingsSaved?.Invoke(this, EventArgs.Empty);
+    }
+
+    // C-056: Browse for root project folder
+    [RelayCommand]
+    private void BrowseRootProjectFolder()
+    {
+        var dlg = new OpenFolderDialog { Title = "Select root project folder (%USERPROFILE%\\.tower)" };
+        if (dlg.ShowDialog() == true)
+            RootProjectFolderPath = dlg.FolderName;
     }
 
     // C-025: Browse for avatar images

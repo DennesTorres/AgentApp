@@ -60,6 +60,7 @@ internal class ProjectSettingsDto
     public bool? RequireUserConfirmationForFindingsExtraction { get; set; }
     public int? TokenThresholdForContextReset { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public List<string> AlwaysAllowedPaths { get; set; } = [];
 
     public static ProjectSettingsDto From(ProjectSettings s) => new()
     {
@@ -68,11 +69,12 @@ internal class ProjectSettingsDto
         RequireUserConfirmationForInternalLearning = s.RequireUserConfirmationForInternalLearning,
         RequireUserConfirmationForFindingsExtraction = s.RequireUserConfirmationForFindingsExtraction,
         TokenThresholdForContextReset = s.TokenThresholdForContextReset,
-        CreatedAt = s.CreatedAt
+        CreatedAt = s.CreatedAt,
+        AlwaysAllowedPaths = s.AlwaysAllowedPaths.ToList()
     };
 
     public ProjectSettings ToSettings() =>
         ProjectSettings.Reconstitute(ProjectId, MaxGateRetries,
             RequireUserConfirmationForInternalLearning, RequireUserConfirmationForFindingsExtraction,
-            TokenThresholdForContextReset, CreatedAt);
+            TokenThresholdForContextReset, CreatedAt, AlwaysAllowedPaths);
 }
